@@ -1,0 +1,147 @@
+{% load render_table from django_tables2 %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Add On List</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+</head>
+<body>
+    <nav class="navbar bg-body-tertiary mb-1">
+        <div class="container py-3 d-flex align-items-center">
+          <a class="navbar-brand" href="{% url 'add_on_analysis:vertex_overview' %}">
+            <img src="https://cdn.prod.website-files.com/62f20de237dc73ad99509eab/66cc62326801a9d81d473297_Companions%20final.svg" alt="Logo" height="55" class="d-inline-block align-text-top">
+          </a>
+          <h1 class="m-0">
+            Vertical | {{ vertex.name }}
+          </h1>
+        </div>
+    </nav>
+    <div class="container overflow-hidden">
+        <div class="row my-4 g-3">
+            <div class="col">
+                <div class="p-3 bg-light rounded">
+                    <h5 class="mb-3">
+                        Addon toevoegen
+                    </h5>
+                    <form action="{% url 'add_on_analysis:addon_overview' vertex.name %}" method="post">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            {% for field in btwForm %}
+                                {{ field }}
+                            {% endfor %}    
+                            <button class="btn btn-primary btn-lg" type="submit">Voeg toe</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="col">
+                <div class="p-3 bg-light rounded">
+                    <h5 class="mb-3">
+                        Lijst uploaden
+                    </h5>
+                    <form action="{% url 'add_on_analysis:upload_file' vertex.name %}" method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            {% for field in uploadForm %}
+                                {{ field }}
+                            {% endfor %}    
+                            <button class="btn btn-primary btn-lg" type="submit" id="fileUpload">Uploaden</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if messages %}
+        <div class="container">
+            {% for message in messages %}
+                <div class="alert alert-danger" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- <div class="container my-4">
+        <h3>
+            Actieve Add-ons
+        </h3>
+    </div>
+    <div class="container px-3 pb-2 bg-light rounded">
+        <div class="container">
+            <div class="row rounded">
+                <div class="col-3 p-4">
+                    <h5 class="m-0">Naam</h5>
+                </div>
+                <div class="col-2 p-4">
+                    <h5 class="m-0">BTW nr.</h5>
+                </div>
+                <div class="col-2 p-4">
+                    <h5 class="m-0">EBITDA</h5>
+                </div>
+                <div class="col-2 p-4">
+                    <h5 class="m-0">FTE</h5>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            {% for addon in addons %}
+                <div class="row rounded bg-white mb-3">
+                    <div class="col-3 p-4 align-self-center">
+                        <h5 class="m-0">{{ addon.name }}</h5>
+                    </div>
+                    <div class="col-2 p-4 align-self-center">
+                        <h5 class="m-0">BE0{{ addon.comp_num }}</h5>
+                    </div>
+                    <div class="col-2 p-4 align-self-center">
+                        <h5 class="m-0">€{{ addon.last_ebitda }}</h5>
+                    </div>
+                    <div class="col-2 p-4 align-self-center">
+                        <h5 class="m-0">{{ addon.last_FTE }}</h5>
+                    </div>
+                    <div class="col-auto align-self-center p-3 ms-auto">
+                        <button type="button" class="btn btn-lg" style="background-color: rgb(121, 225, 16); color: white; border-radius: 30px;">Goed</button>
+                    </div>
+                    <div class="col-auto align-self-center p-3">
+                        <button type="button" class="btn btn-dark btn-lg">&#8594;</button>
+                    </div>
+                    <div class="col-auto align-self-center p-3">
+                        <form action="{% url 'add_on_analysis:delete_addon' id=addon.id %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-lg" style="background-color: rgb(235, 48, 72); color: white;">&#10008;</button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div> -->
+   
+    <div class="container">
+        <div class="row py-4 d-flex align-items-center">
+            <div class="col">
+                <h2 class="m-0">
+                    Actieve Add-ons
+                </h2>
+            </div>
+            <div class="col-auto">
+                <form action="{% url 'add_on_analysis:export_addons' vertex.name %}" method="GET">
+                    <button type="submit" class="btn btn-primary btn-lg">Exporteer</button>
+                </form>
+            </div>
+        </div>
+        {% if active_table.data %}
+        <div class="p-4 bg-light rounded pb-1 mb-5">
+            {% render_table active_table %}
+        </div>
+        {% else %}
+        <h4 class="mt-4">
+            Geen actieve add-ons momenteel!
+        </h4>
+        {% endif %}
+    </div>
+</body>
+</html>
