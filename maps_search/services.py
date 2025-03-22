@@ -9,19 +9,23 @@ import copy
 import re
 
 logger = logging.getLogger(__name__)
-FUZZY_MATCH_THRESHOLD = 85
+FUZZY_MATCH_THRESHOLD = 80
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
 
 def parse_address_string(address_string):
-    match = re.match(r'^(.*?)(\d+)[, ]+(\d{4,5})[ ]+([A-Za-zÀ-ÿ\'\- ]+)', address_string)
-    
+    match = re.match(
+        r'^(?P<street>.*?)(?P<number>\d+)\s*(?:[a-zA-Z]+)?(?:\s*(bus|boîte|bte)?\s*\d*)?\s*,?\s*(?P<postal_code>\d{4,5})\s+(?P<city>[A-Za-zÀ-ÿ\'\- ]+)',
+        address_string,
+        re.IGNORECASE
+    )
+
     if not match:
         return None, None, None, None
 
-    street = match.group(1).strip().lower()
-    house_number = match.group(2).strip()
-    postal_code = match.group(3).strip()
-    city = match.group(4).strip()
+    street = match.group("street").strip().lower()
+    house_number = match.group("number").strip()  # Only the digits
+    postal_code = match.group("postal_code").strip()
+    city = match.group("city").strip()
 
     return street, house_number, postal_code, city
 
@@ -37,7 +41,7 @@ def enrich_with_company_data(places_data):
         
         street, house_number, postal_code, city = parse_address_string(formatted_address)
 
-        normalized_key = f"{street.lower()}_{house_number}_{postal_code}"
+        normalized_key = f"{street}_{house_number}_{postal_code}"
         cache_key = f"enriched_place:{hashlib.md5(normalized_key.encode()).hexdigest()}"
         cached_result = cache.get(cache_key)
 
@@ -49,26 +53,28 @@ def enrich_with_company_data(places_data):
 
         if street and postal_code and house_number and city:
             possible_addresses = Address.objects.filter(
-                street__icontains=street,
+                street__iexact=street,
                 postal_code=postal_code,
-                house_number=house_number,
-                city=city
+                city__iexact=city
             ).select_related("company")
         else:
             possible_addresses = Address.objects.none()
-            
-        formatted_address = f"{street} {house_number} {postal_code} {city}"
         
-        best_score = 0
-        matched_company = None
+        if possible_addresses.count() == 1:
+            matched_company = possible_addresses.first().company
+        else:
+            formatted_address = f"{street} {house_number} {postal_code} {city}"
+            
+            best_score = 0
+            matched_company = None
 
-        for addr in possible_addresses:
-            full_addr = addr.formatted_address()
-            score = fuzz.WRatio(formatted_address, full_addr)
+            for addr in possible_addresses:
+                full_addr = addr.formatted_address()
+                score = fuzz.WRatio(formatted_address, full_addr)
 
-            if score > FUZZY_MATCH_THRESHOLD and score > best_score:
-                matched_company = addr.company
-                best_score = score
+                if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+                    matched_company = addr.company
+                    best_score = score
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,

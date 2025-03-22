@@ -11,9 +11,9 @@ class Company(models.Model):
 class Address(models.Model):
     company = models.ForeignKey(Company, related_name='addresses', db_index=True, on_delete=models.CASCADE)
     street = models.CharField(max_length=255, db_index=True)
-    house_number = models.CharField(max_length=20)
-    postal_code = models.CharField(max_length=20)
-    city = models.CharField(max_length=100)
+    house_number = models.CharField(max_length=20, db_index=True)
+    postal_code = models.CharField(max_length=20, db_index=True)
+    city = models.CharField(max_length=100, db_index=True)
     country = models.CharField(max_length=100)
 
     def __str__(self):
