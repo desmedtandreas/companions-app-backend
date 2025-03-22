@@ -2,7 +2,7 @@ import logging
 import requests
 from django.conf import settings
 from django.core.cache import cache
-from companies.models import Company, Address
+from companies.models import Address
 from rapidfuzz import fuzz
 import hashlib
 import copy
