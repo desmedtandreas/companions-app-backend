@@ -46,15 +46,11 @@ def enrich_with_company_data(places_data):
 
     for place in places_data:
         matched_company = None
-        formatted_address = place.get("address", "")
+        street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
+        name = normalize_name(place.get("name", ""))
 
-        if not formatted_address:
-            enriched.append(place)
-            continue
-        
-        street, house_number, postal_code, city = parse_address_string(formatted_address)
 
-        normalized_key = f"{street}_{house_number}_{postal_code}"
+        normalized_key = f"{name}_{street}_{house_number}_{postal_code}"
         cache_key = f"enriched_place:{hashlib.md5(normalized_key.encode()).hexdigest()}"
         cached_result = cache.get(cache_key)
 
@@ -74,31 +70,11 @@ def enrich_with_company_data(places_data):
             print('Possible addresses: ', possible_addresses)
         else:
             possible_addresses = Address.objects.none()
-        
-        if possible_addresses.exists():
-            if possible_addresses.count() == 1:
-                matched_company = possible_addresses.first().company
-            else:
-                formatted_address = f"{street} {house_number} {postal_code} {city}"
-                
-                best_score = 0
-
-                for addr in possible_addresses:
-                    full_addr = addr.formatted_address()
-                    score = fuzz.WRatio(formatted_address, full_addr)
-
-                    if score > FUZZY_MATCH_THRESHOLD and score > best_score:
-                        matched_company = addr.company
-                        best_score = score
-        else:
-            name = place.get("name", "").strip()
-            name = normalize_name(name)
-
-            if name:
-                possible_companies = Company.objects.filter(name__iexact=name)
-
-                if possible_companies.count() == 1:
-                    matched_company = possible_companies.first()
+            
+        for possible_address in possible_addresses:
+            if possible_address.company.name == name:
+                matched_company = possible_address.company
+                break
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
