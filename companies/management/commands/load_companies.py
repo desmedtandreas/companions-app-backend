@@ -12,11 +12,16 @@ class Command(BaseCommand):
         denomination_url = 'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv'
         addresses_url = 'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address.csv'
 
+        self.stdout.write("⏳ Starting companies load...")
         self.load_companies(companies_url)
+
+        self.stdout.write("⏳ Starting denomination load...")
         self.load_denomination(denomination_url)
+
+        self.stdout.write("⏳ Starting addresses load...")
         self.load_addresses(addresses_url)
 
-        self.stdout.write(self.style.SUCCESS('✅ Successfully loaded companies and addresses.'))
+        self.stdout.write(self.style.SUCCESS('✅ Successfully loaded all data.'))
 
     def download_csv(self, url):
         response = requests.get(url)
