@@ -86,6 +86,11 @@ def enrich_with_company_data(places_data):
                 if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
                     best_score = ratio
                     matched_company = possible_address.company
+                    
+        else:
+            possible_companies = Company.objects.filter(name__iexact=name)
+            if possible_companies.exists():
+                matched_company = possible_companies.first()
                 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
