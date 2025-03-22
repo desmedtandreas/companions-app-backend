@@ -6,10 +6,24 @@ from companies.models import Address
 from rapidfuzz import fuzz
 import hashlib
 import copy
+import re
 
 logger = logging.getLogger(__name__)
 FUZZY_MATCH_THRESHOLD = 85
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
+
+def parse_address_string(address_string):
+    match = re.match(r'^(.*?)(\d+)[, ]+(\d{4,5})[ ]+([A-Za-zÀ-ÿ\'\- ]+)', address_string)
+    
+    if not match:
+        return None, None, None, None
+
+    street = match.group(1).strip().lower()
+    house_number = match.group(2).strip()
+    postal_code = match.group(3).strip()
+    city = match.group(4).strip()
+
+    return street, house_number, postal_code, city
 
 def enrich_with_company_data(places_data):
     enriched = []
@@ -20,8 +34,11 @@ def enrich_with_company_data(places_data):
         if not formatted_address:
             enriched.append(place)
             continue
+        
+        street, house_number, postal_code, city = parse_address_string(formatted_address)
 
-        cache_key = f"enriched_place:{hashlib.md5(formatted_address.encode()).hexdigest()}"
+        normalized_key = f"{street.lower()}_{house_number}_{postal_code}"
+        cache_key = f"enriched_place:{hashlib.md5(normalized_key.encode()).hexdigest()}"
         cached_result = cache.get(cache_key)
 
         if cached_result is not None:
@@ -30,11 +47,32 @@ def enrich_with_company_data(places_data):
             enriched.append(place)
             continue
 
-        matched_company = perform_fuzzy_matching(formatted_address)
+        if street and postal_code and house_number and city:
+            possible_addresses = Address.objects.filter(
+                street__icontains=street,
+                postal_code=postal_code,
+                house_number=house_number,
+                city=city
+            ).select_related("company")
+        else:
+            possible_addresses = Address.objects.none()
+            
+        formatted_address = f"{street} {house_number} {postal_code} {city}"
+        
+        best_score = 0
+        matched_company = None
+
+        for addr in possible_addresses:
+            full_addr = addr.formatted_address()
+            score = fuzz.WRatio(formatted_address, full_addr)
+
+            if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+                matched_company = addr.company
+                best_score = score
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
-            "company_id": matched_company.id if matched_company else None
+            "company_id": matched_company.id if matched_company else None,
         }
 
         cache.set(cache_key, copy.deepcopy(result), CACHE_TIMEOUT)
@@ -43,26 +81,6 @@ def enrich_with_company_data(places_data):
         enriched.append(place)
 
     return enriched
-
-def perform_fuzzy_matching(formatted_address):
-    partial_query = formatted_address[:5].lower()
-
-    possible_addresses = Address.objects.filter(
-        street__icontains=partial_query
-    ).select_related("company")
-
-    best_score = 0
-    matched_company = None
-
-    for addr in possible_addresses:
-        full_addr = addr.full_address()
-        score = fuzz.WRatio(formatted_address[:-9], full_addr)
-
-        if score > FUZZY_MATCH_THRESHOLD and score > best_score:
-            matched_company = addr.company
-            best_score = score
-
-    return matched_company
 
 def GoogleMapsPlacesAPI(textQuery):
     cache_key = f"google_places:{hashlib.md5(textQuery.encode()).hexdigest()}"
