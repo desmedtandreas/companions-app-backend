@@ -3,7 +3,7 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 from companies.models import Address
-from rapidfuzz import process, fuzz
+from rapidfuzz import fuzz
 import hashlib
 import copy
 
@@ -11,74 +11,58 @@ logger = logging.getLogger(__name__)
 FUZZY_MATCH_THRESHOLD = 85
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
 
-
 def enrich_with_company_data(places_data):
     enriched = []
-    address_lookup = {}
 
-    # Step 1: Collect partial queries
-    partials = set()
-    for place in places_data:
-        addr = place.get("address", "")
-        if addr:
-            partials.add(addr[:5].lower())
-
-    # Step 2: Query all matching addresses once
-    from django.db.models import Q
-    query = Q()
-    for p in partials:
-        query |= Q(street__icontains=p)
-
-    addresses = Address.objects.filter(query).select_related("company")
-
-    # Step 3: Build full_address to Address object map
-    for addr in addresses:
-        full_addr = addr.full_address()
-        address_lookup[full_addr] = addr
-
-    address_corpus = list(address_lookup.keys())  # list of strings
-
-    # Step 4: Enrich each place
     for place in places_data:
         formatted_address = place.get("address", "")
+
         if not formatted_address:
-            place.update({"vat_number": None, "company_id": None})
             enriched.append(place)
             continue
 
         cache_key = f"enriched_place:{hashlib.md5(formatted_address.encode()).hexdigest()}"
         cached_result = cache.get(cache_key)
 
-        if cached_result:
+        if cached_result is not None:
+            # Deep copy to avoid mutations
             place.update(copy.deepcopy(cached_result))
             enriched.append(place)
             continue
 
-        # Step 5: Fuzzy match from preloaded corpus
-        match = process.extractOne(
-            formatted_address,
-            address_corpus,
-            scorer=fuzz.WRatio,
-            score_cutoff=FUZZY_MATCH_THRESHOLD
-        )
+        matched_company = perform_fuzzy_matching(formatted_address)
 
-        if match:
-            matched_addr = address_lookup[match[0]]
-            result = {
-                "vat_number": matched_addr.company.enterprise_number,
-                "company_id": matched_addr.company.id
-            }
-        else:
-            result = {
-                "vat_number": None,
-                "company_id": None
-            }
+        result = {
+            "vat_number": matched_company.enterprise_number if matched_company else None,
+            "company_id": matched_company.id if matched_company else None
+        }
 
         cache.set(cache_key, copy.deepcopy(result), CACHE_TIMEOUT)
+
         place.update(result)
         enriched.append(place)
 
     return enriched
+
+def perform_fuzzy_matching(formatted_address):
+    partial_query = formatted_address[:5].lower()
+
+    possible_addresses = Address.objects.filter(
+        street__icontains=partial_query
+    ).select_related("company")
+
+    best_score = 0
+    matched_company = None
+
+    for addr in possible_addresses:
+        full_addr = addr.full_address()
+        score = fuzz.WRatio(formatted_address[:-9], full_addr)
+
+        if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+            matched_company = addr.company
+            best_score = score
+
+    return matched_company
 
 def GoogleMapsPlacesAPI(textQuery):
     cache_key = f"google_places:{hashlib.md5(textQuery.encode()).hexdigest()}"
