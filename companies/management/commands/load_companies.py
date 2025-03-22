@@ -26,14 +26,10 @@ class Command(BaseCommand):
     def stream_csv(self, url):
         with requests.get(url, stream=True) as response:
             response.raise_for_status()
-            with NamedTemporaryFile(mode='w+', newline='', delete=True) as tmp:
-                for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
-                    tmp.write(chunk)
-                tmp.flush()
-                tmp.seek(0)
-                reader = csv.DictReader(tmp)
-                for row in reader:
-                    yield row
+            lines = (line.decode('utf-8') for line in response.iter_lines())
+            reader = csv.DictReader(lines)
+            for row in reader:
+                yield row
 
     def load_companies(self, url):
         existing_numbers = set(Company.objects.values_list('enterprise_number', flat=True))
@@ -57,7 +53,7 @@ class Command(BaseCommand):
         if new_companies:
             Company.objects.bulk_create(new_companies, batch_size=1000)
 
-        self.stdout.write(self.style.SUCCESS(f'🚀 Created new companies.'))
+        self.stdout.write(self.style.SUCCESS(f'🚀 Created {len(new_companies)} new companies.'))
 
     def load_denomination(self, url):
         denom_map = {}
@@ -100,4 +96,4 @@ class Command(BaseCommand):
         if addresses:
             Address.objects.bulk_create(addresses, batch_size=1000)
 
-        self.stdout.write(self.style.SUCCESS(f'🏠 Created new addresses.'))
+        self.stdout.write(self.style.SUCCESS(f'🏠 Created {len(addresses)} new addresses.'))
