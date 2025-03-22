@@ -1,95 +1,82 @@
-import csv
-from collections import defaultdict
+import pandas as pd
+import requests
+from io import StringIO
 from django.core.management.base import BaseCommand
 from companies.models import Company, Address
-from django.db import transaction
 
 class Command(BaseCommand):
     help = 'Load companies from CSV files (enterprise, denomination, addresses)'
 
     def handle(self, *args, **options):
-        self.load_companies('https://drive.google.com/uc?export=download&id=19O_bGf_Os0lLa7T9ZKrkq1sNX1hrMdfR')
-        self.load_denomination('https://drive.google.com/uc?export=download&id=1XmGL7urCXwzYgLGvreyGFCo3c6YNv9Pe')
-        self.load_addresses('https://drive.google.com/uc?export=download&id=1guWNR7v-Hl94cYy62t3n2HQWC_fjHAbc')
+        companies_url = 'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv'
+        denomination_url = 'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv'
+        addresses_url = 'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address.csv'
+
+        self.load_companies(companies_url)
+        self.load_denomination(denomination_url)
+        self.load_addresses(addresses_url)
+
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded companies and addresses.'))
 
-    def load_companies(self, path):
-        with open(path, newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            enterprise_numbers = set()
-            new_companies = []
+    def download_csv(self, url):
+        response = requests.get(url)
+        response.raise_for_status()
+        return pd.read_csv(StringIO(response.text, low_memory=False))
 
-            existing = set(Company.objects.values_list('enterprise_number', flat=True))
+    def load_companies(self, url):
+        df = self.download_csv(url)
+        df = df[df['TypeOfEnterprise'] == 2]
 
-            for row in reader:
-                if row['TypeOfEnterprise'] != '2':
-                    continue
+        existing_numbers = set(Company.objects.values_list('enterprise_number', flat=True))
+        new_companies = [
+            Company(enterprise_number=row['EnterpriseNumber'], legal_form=row['JuridicalForm'])
+            for _, row in df.iterrows()
+            if row['EnterpriseNumber'] not in existing_numbers
+        ]
 
-                enterprise_number = row['EnterpriseNumber']
-                enterprise_numbers.add(enterprise_number)
+        Company.objects.bulk_create(new_companies, batch_size=1000)
+        self.stdout.write(self.style.SUCCESS(f'🚀 Created {len(new_companies)} new companies.'))
 
-                if enterprise_number not in existing:
-                    new_companies.append(Company(
-                        enterprise_number=enterprise_number,
-                        legal_form=row['JuridicalForm']
-                    ))
+    def load_denomination(self, url):
+        df = self.download_csv(url)
+        df = df[df['TypeOfDenomination'] == '001']
 
-            Company.objects.bulk_create(new_companies, batch_size=1000)
-            self.stdout.write(self.style.SUCCESS(f'🚀 Created {len(new_companies)} new companies.'))
+        denom_map = dict(zip(df['EntityNumber'], df['Denomination']))
 
-    def load_denomination(self, path):
-        with open(path, newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            names = {}
-
-            for row in reader:
-                if row['TypeOfDenomination'] != '001':
-                    continue
-                names[row['EntityNumber']] = row['Denomination']
-
-        def chunked(iterable, size):
-            for i in range(0, len(iterable), size):
-                yield iterable[i:i+size]
-
-        enterprise_numbers = list(names.keys())
-        companies = []
-
-        for chunk in chunked(enterprise_numbers, 900):  # 500 is safe for SQLite
-            companies += list(Company.objects.filter(enterprise_number__in=chunk))
+        companies = list(Company.objects.filter(enterprise_number__in=denom_map.keys()))
 
         companies_to_update = []
         for company in companies:
-            if not company.name:
-                new_name = names.get(company.enterprise_number)
-                if new_name:
-                    company.name = new_name
-                    companies_to_update.append(company)
+            new_name = denom_map.get(company.enterprise_number)
+            if new_name and not company.name:
+                company.name = new_name
+                companies_to_update.append(company)
 
         Company.objects.bulk_update(companies_to_update, ['name'], batch_size=1000)
         self.stdout.write(self.style.SUCCESS(
             f'📝 Updated names for {len(companies_to_update)} companies.'
         ))
 
-    def load_addresses(self, path):
-        with open(path, newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            addresses = []
-            company_map = {
-                c.enterprise_number: c
-                for c in Company.objects.all()
-            }
+    def load_addresses(self, url):
+        df = self.download_csv(url)
 
-            for row in reader:
-                company = company_map.get(row['EntityNumber'])
-                if company:
-                    addresses.append(Address(
-                        company=company,
-                        street=row['StreetNL'],
-                        house_number=row['HouseNumber'],
-                        postal_code=row['Zipcode'],
-                        city=row['MunicipalityNL'],
-                        country=row['CountryNL']
-                    ))
+        companies = {
+            c.enterprise_number: c
+            for c in Company.objects.all()
+        }
 
-            Address.objects.bulk_create(addresses, batch_size=1000)
-            self.stdout.write(self.style.SUCCESS(f'🏠 Created {len(addresses)} addresses.'))
+        addresses = []
+        for _, row in df.iterrows():
+            company = companies.get(row['EntityNumber'])
+            if company:
+                addresses.append(Address(
+                    company=company,
+                    street=row['StreetNL'],
+                    house_number=row['HouseNumber'],
+                    postal_code=row['Zipcode'],
+                    city=row['MunicipalityNL'],
+                    country=row['CountryNL']
+                ))
+
+        Address.objects.bulk_create(addresses, batch_size=1000)
+        self.stdout.write(self.style.SUCCESS(f'🏠 Created {len(addresses)} addresses.'))
