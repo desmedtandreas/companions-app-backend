@@ -21,7 +21,7 @@ class Command(BaseCommand):
     def download_csv(self, url):
         response = requests.get(url)
         response.raise_for_status()
-        return pd.read_csv(StringIO(response.text, low_memory=False))
+        return pd.read_csv(StringIO(response.text), low_memory=False)
 
     def load_companies(self, url):
         df = self.download_csv(url)
