@@ -26,7 +26,7 @@ def parse_address_string(address_string):
     if not match:
         return None, None, None, None
 
-    street = match.group("street").strip().lower()
+    street = match.group("street").strip()
     house_number = match.group("number").strip()  # Just the digits
     postal_code = match.group("postal_code").strip()
     city = match.group("city").strip()
