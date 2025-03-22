@@ -2,7 +2,7 @@ import logging
 import requests
 from django.conf import settings
 from django.core.cache import cache
-from companies.models import Address
+from companies.models import Company, Address
 from rapidfuzz import fuzz
 import hashlib
 import copy
@@ -66,21 +66,40 @@ def enrich_with_company_data(places_data):
         else:
             possible_addresses = Address.objects.none()
         
-        if possible_addresses.count() == 1:
-            matched_company = possible_addresses.first().company
+        if possible_addresses.exists():
+            if possible_addresses.count() == 1:
+                matched_company = possible_addresses.first().company
+            else:
+                formatted_address = f"{street} {house_number} {postal_code} {city}"
+                
+                best_score = 0
+                matched_company = None
+
+                for addr in possible_addresses:
+                    full_addr = addr.formatted_address()
+                    score = fuzz.WRatio(formatted_address, full_addr)
+
+                    if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+                        matched_company = addr.company
+                        best_score = score
         else:
-            formatted_address = f"{street} {house_number} {postal_code} {city}"
-            
-            best_score = 0
-            matched_company = None
+            name = place.get("name", "")
+            if name:
+                possible_companies = Company.objects.filter(name__icontains=name)
+                
+                if possible_companies.exists():
+                    if possible_companies.count() == 1:
+                        matched_company = possible_companies.first()
+                    else:
+                        best_score = 0
+                        matched_company = None
 
-            for addr in possible_addresses:
-                full_addr = addr.formatted_address()
-                score = fuzz.WRatio(formatted_address, full_addr)
+                        for company in possible_companies:
+                            score = fuzz.WRatio(name, company.name)
 
-                if score > FUZZY_MATCH_THRESHOLD and score > best_score:
-                    matched_company = addr.company
-                    best_score = score
+                            if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+                                matched_company = company
+                                best_score = score
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
