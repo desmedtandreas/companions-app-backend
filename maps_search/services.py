@@ -49,7 +49,6 @@ def enrich_with_company_data(places_data):
         street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
         name = normalize_name(place.get("name", ""))
 
-
         normalized_key = f"{name}_{street}_{house_number}_{postal_code}"
         cache_key = f"enriched_place:{hashlib.md5(normalized_key.encode()).hexdigest()}"
         cached_result = cache.get(cache_key)
@@ -72,7 +71,7 @@ def enrich_with_company_data(places_data):
             possible_addresses = Address.objects.none()
             
         for possible_address in possible_addresses:
-            if possible_address.company.name == name:
+            if possible_address.company.name.lower() == name:
                 matched_company = possible_address.company
                 break
 
