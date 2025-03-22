@@ -29,6 +29,10 @@ SECRET_KEY = os.environ.get(
     default=secrets.token_urlsafe(nbytes=64),
 )
 
+GOOGLE_MAPS_API_KEY = os.environ.get(
+    "GOOGLE_MAPS_API_KEY",
+)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("ENVIRONMENT") == "development"
 
@@ -62,7 +66,6 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-    'add_on_analysis.apps.AddOnAnalysisConfig',
     'whitenoise.runserver_nostatic',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -72,6 +75,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_tables2',
     'django_htmx',
+    'rest_framework',
+    'maps_search',
+    'corsheaders',
+    'companies',
 ]
 
 MIDDLEWARE = [
@@ -84,7 +91,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'companions_backend.urls'
 

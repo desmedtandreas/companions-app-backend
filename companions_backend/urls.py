@@ -18,6 +18,6 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path("", include("add_on_analysis.urls")),
+    path('api/maps-search/', include('maps_search.urls')),
     path('admin/', admin.site.urls),
 ]
