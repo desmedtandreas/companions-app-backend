@@ -22,7 +22,7 @@ def parse_address_string(address_string):
     if not match:
         return None, None, None, None
 
-    street = match.group("street").strip().lower()
+    street = match.group("street").strip()
     house_number = match.group("number").strip()  # Only the digits
     postal_code = match.group("postal_code").strip()
     city = match.group("city").strip()
@@ -52,11 +52,14 @@ def enrich_with_company_data(places_data):
             continue
 
         if street and postal_code and house_number and city:
+            print('Address: ', street, house_number, postal_code, city)
             possible_addresses = Address.objects.filter(
                 street=street,
                 postal_code=postal_code,
+                house_number=house_number,
                 city=city
             ).select_related("company")
+            print('Possible addresses: ', possible_addresses)
         else:
             possible_addresses = Address.objects.none()
         
