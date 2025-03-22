@@ -1,6 +1,6 @@
-import pandas as pd
+import csv
 import requests
-from io import StringIO
+from tempfile import NamedTemporaryFile
 from django.core.management.base import BaseCommand
 from companies.models import Company, Address
 
@@ -23,32 +23,49 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded all data.'))
 
-    def download_csv(self, url):
-        response = requests.get(url)
-        response.raise_for_status()
-        return pd.read_csv(StringIO(response.text), low_memory=False)
+    def stream_csv(self, url):
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            with NamedTemporaryFile(mode='w+', newline='', delete=True) as tmp:
+                for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
+                    tmp.write(chunk)
+                tmp.flush()
+                tmp.seek(0)
+                reader = csv.DictReader(tmp)
+                for row in reader:
+                    yield row
 
     def load_companies(self, url):
-        df = self.download_csv(url)
-        df = df[df['TypeOfEnterprise'] == 2]
-
         existing_numbers = set(Company.objects.values_list('enterprise_number', flat=True))
-        new_companies = [
-            Company(enterprise_number=row['EnterpriseNumber'], legal_form=row['JuridicalForm'])
-            for _, row in df.iterrows()
-            if row['EnterpriseNumber'] not in existing_numbers
-        ]
+        new_companies = []
 
-        Company.objects.bulk_create(new_companies, batch_size=1000)
-        self.stdout.write(self.style.SUCCESS(f'🚀 Created {len(new_companies)} new companies.'))
+        for row in self.stream_csv(url):
+            if row['TypeOfEnterprise'] != '2':
+                continue
+
+            enterprise_number = row['EnterpriseNumber']
+            if enterprise_number not in existing_numbers:
+                new_companies.append(Company(
+                    enterprise_number=enterprise_number,
+                    legal_form=row['JuridicalForm']
+                ))
+
+            if len(new_companies) >= 1000:
+                Company.objects.bulk_create(new_companies, batch_size=1000)
+                new_companies.clear()
+
+        if new_companies:
+            Company.objects.bulk_create(new_companies, batch_size=1000)
+
+        self.stdout.write(self.style.SUCCESS(f'🚀 Created new companies.'))
 
     def load_denomination(self, url):
-        df = self.download_csv(url)
-        df = df[df['TypeOfDenomination'] == '001']
+        denom_map = {}
+        for row in self.stream_csv(url):
+            if row['TypeOfDenomination'] == '001':
+                denom_map[row['EntityNumber']] = row['Denomination']
 
-        denom_map = dict(zip(df['EntityNumber'], df['Denomination']))
-
-        companies = list(Company.objects.filter(enterprise_number__in=denom_map.keys()))
+        companies = Company.objects.filter(enterprise_number__in=denom_map.keys())
 
         companies_to_update = []
         for company in companies:
@@ -58,21 +75,14 @@ class Command(BaseCommand):
                 companies_to_update.append(company)
 
         Company.objects.bulk_update(companies_to_update, ['name'], batch_size=1000)
-        self.stdout.write(self.style.SUCCESS(
-            f'📝 Updated names for {len(companies_to_update)} companies.'
-        ))
+        self.stdout.write(self.style.SUCCESS(f'📝 Updated names for {len(companies_to_update)} companies.'))
 
     def load_addresses(self, url):
-        df = self.download_csv(url)
-
-        companies = {
-            c.enterprise_number: c
-            for c in Company.objects.all()
-        }
-
+        company_map = {c.enterprise_number: c for c in Company.objects.all()}
         addresses = []
-        for _, row in df.iterrows():
-            company = companies.get(row['EntityNumber'])
+
+        for row in self.stream_csv(url):
+            company = company_map.get(row['EntityNumber'])
             if company:
                 addresses.append(Address(
                     company=company,
@@ -83,5 +93,11 @@ class Command(BaseCommand):
                     country=row['CountryNL']
                 ))
 
-        Address.objects.bulk_create(addresses, batch_size=1000)
-        self.stdout.write(self.style.SUCCESS(f'🏠 Created {len(addresses)} addresses.'))
+            if len(addresses) >= 1000:
+                Address.objects.bulk_create(addresses, batch_size=1000)
+                addresses.clear()
+
+        if addresses:
+            Address.objects.bulk_create(addresses, batch_size=1000)
+
+        self.stdout.write(self.style.SUCCESS(f'🏠 Created new addresses.'))
