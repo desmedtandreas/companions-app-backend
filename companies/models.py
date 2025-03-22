@@ -18,7 +18,7 @@ class Address(models.Model):
     
     class Meta:
         indexes = [
-            models.Index(fields=["street", "postal_code", "house_number", "city"]),
+            models.Index(fields=["street", "house_number", "city"]),
         ]
 
     def __str__(self):

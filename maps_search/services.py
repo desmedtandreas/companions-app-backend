@@ -61,7 +61,6 @@ def enrich_with_company_data(places_data):
                 street=street,
                 postal_code=postal_code,
                 house_number=house_number,
-                city=city
             ).select_related("company")
             print('Possible addresses: ', possible_addresses)
         else:
