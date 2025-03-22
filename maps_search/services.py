@@ -13,17 +13,21 @@ FUZZY_MATCH_THRESHOLD = 80
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
 
 def parse_address_string(address_string):
+    # Pre-clean: remove leading bus/unit if present
+    cleaned_address = re.sub(r'^(bus|boîte|bte)\s*\d+\s*,\s*', '', address_string, flags=re.IGNORECASE)
+
+    # Match street + house number (digits only), optionally followed by unit
     match = re.match(
-        r'^(?P<street>.*?)(?P<number>\d+)\s*(?:[a-zA-Z]+)?(?:\s*(bus|boîte|bte)?\s*\d*)?\s*,?\s*(?P<postal_code>\d{4,5})\s+(?P<city>[A-Za-zÀ-ÿ\'\- ]+)',
-        address_string,
+        r'^(?P<street>.*?)(?P<number>\d+)(?:[a-zA-Z]?|\/\d+)?\s*,?\s*(?P<postal_code>\d{4,5})\s+(?P<city>[A-Za-zÀ-ÿ\'\- ]+)',
+        cleaned_address,
         re.IGNORECASE
     )
 
     if not match:
         return None, None, None, None
 
-    street = match.group("street").strip()
-    house_number = match.group("number").strip()  # Only the digits
+    street = match.group("street").strip().lower()
+    house_number = match.group("number").strip()  # Just the digits
     postal_code = match.group("postal_code").strip()
     city = match.group("city").strip()
 
