@@ -15,6 +15,11 @@ class Address(models.Model):
     postal_code = models.CharField(max_length=20, db_index=True)
     city = models.CharField(max_length=100, db_index=True)
     country = models.CharField(max_length=100)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["street", "postal_code", "city"]),
+        ]
 
     def __str__(self):
         return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
