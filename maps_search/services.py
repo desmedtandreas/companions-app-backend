@@ -93,6 +93,7 @@ def enrich_with_company_data(places_data):
                 matched_company = possible_companies.first()
                 
         result = {
+            "company_name": matched_company.name if matched_company else None,
             "vat_number": matched_company.enterprise_number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
         }
