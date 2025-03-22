@@ -37,6 +37,7 @@ def enrich_with_company_data(places_data):
     enriched = []
 
     for place in places_data:
+        matched_company = None
         formatted_address = place.get("address", "")
 
         if not formatted_address:
@@ -73,7 +74,6 @@ def enrich_with_company_data(places_data):
                 formatted_address = f"{street} {house_number} {postal_code} {city}"
                 
                 best_score = 0
-                matched_company = None
 
                 for addr in possible_addresses:
                     full_addr = addr.formatted_address()
@@ -90,7 +90,7 @@ def enrich_with_company_data(places_data):
 
                 if possible_companies.count() == 1:
                     matched_company = possible_companies.first()
-            
+
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
