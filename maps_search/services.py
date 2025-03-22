@@ -82,24 +82,24 @@ def enrich_with_company_data(places_data):
                     if score > FUZZY_MATCH_THRESHOLD and score > best_score:
                         matched_company = addr.company
                         best_score = score
-        else:
-            name = place.get("name", "")
-            if name:
-                possible_companies = Company.objects.filter(name__icontains=name)
+        # else:
+        #     name = place.get("name", "")
+        #     if name:
+        #         possible_companies = Company.objects.filter(name__icontains=name)
                 
-                if possible_companies.exists():
-                    if possible_companies.count() == 1:
-                        matched_company = possible_companies.first()
-                    else:
-                        best_score = 0
-                        matched_company = None
+        #         if possible_companies.exists():
+        #             if possible_companies.count() == 1:
+        #                 matched_company = possible_companies.first()
+        #             else:
+        #                 best_score = 0
+        #                 matched_company = None
 
-                        for company in possible_companies:
-                            score = fuzz.WRatio(name, company.name)
+        #                 for company in possible_companies:
+        #                     score = fuzz.WRatio(name, company.name)
 
-                            if score > FUZZY_MATCH_THRESHOLD and score > best_score:
-                                matched_company = company
-                                best_score = score
+        #                     if score > FUZZY_MATCH_THRESHOLD and score > best_score:
+        #                         matched_company = company
+        #                         best_score = score
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
