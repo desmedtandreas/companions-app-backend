@@ -20,7 +20,7 @@ def parse_address_string(address_string):
 
     # Match street + house number (digits only), optionally followed by unit
     match = re.match(
-        r'^(?P<street>.*?)(?P<number>\d+)(?:[a-zA-Z]?|\/\d+)?\s*,?\s*(?P<postal_code>\d{4,5})\s+(?P<city>[A-Za-zÀ-ÿ\'\- ]+)',
+        r'^(?P<street>.*?)\s*(?P<number>\d+[./]?\d*[a-zA-Z]?)\s*,?\s*(?P<postal_code>\d{4,5})\s+(?P<city>[A-Za-zÀ-ÿ\'\- ]+)',
         cleaned_address,
         re.IGNORECASE
     )
