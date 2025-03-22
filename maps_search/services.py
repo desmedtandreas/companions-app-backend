@@ -9,6 +9,8 @@ import copy
 import re
 
 logger = logging.getLogger(__name__)
+
+SUFFIX_PATTERN = r'\b(bvba|bv|nv|cvba|cv|vzw|sprl|srl|asbl|gmbh|sa|plc|ltd|llc)\b$'
 FUZZY_MATCH_THRESHOLD = 80
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
 
@@ -32,6 +34,12 @@ def parse_address_string(address_string):
     city = match.group("city").strip()
 
     return street, house_number, postal_code, city
+
+
+def normalize_name(name):
+    name = name.lower().strip()
+    name = re.sub(SUFFIX_PATTERN, '', name).strip()
+    return name
 
 def enrich_with_company_data(places_data):
     enriched = []
@@ -84,6 +92,7 @@ def enrich_with_company_data(places_data):
                         best_score = score
         else:
             name = place.get("name", "").strip()
+            name = normalize_name(name)
 
             if name:
                 possible_companies = Company.objects.filter(name__iexact=name)
