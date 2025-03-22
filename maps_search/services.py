@@ -70,10 +70,14 @@ def enrich_with_company_data(places_data):
         else:
             possible_addresses = Address.objects.none()
             
-        for possible_address in possible_addresses:
-            if possible_address.company.name.lower() == name:
-                matched_company = possible_address.company
-                break
+        if possible_addresses.count() == 1:
+            matched_company = possible_addresses.first().company
+        
+        elif possible_addresses.count() > 1:   
+            for possible_address in possible_addresses:
+                if possible_address.company.name.lower() == name:
+                    matched_company = possible_address.company
+                    break
 
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
