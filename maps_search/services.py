@@ -53,9 +53,9 @@ def enrich_with_company_data(places_data):
 
         if street and postal_code and house_number and city:
             possible_addresses = Address.objects.filter(
-                street__iexact=street,
+                street=street,
                 postal_code=postal_code,
-                city__iexact=city
+                city=city
             ).select_related("company")
         else:
             possible_addresses = Address.objects.none()
