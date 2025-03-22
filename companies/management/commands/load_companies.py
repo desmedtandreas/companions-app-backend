@@ -8,9 +8,9 @@ class Command(BaseCommand):
     help = 'Load companies from CSV files (enterprise, denomination, addresses)'
 
     def handle(self, *args, **options):
-        self.load_companies('data/enterprise.csv')
-        self.load_denomination('data/denomination.csv')
-        self.load_addresses('data/address.csv')
+        self.load_companies('https://drive.google.com/uc?export=download&id=19O_bGf_Os0lLa7T9ZKrkq1sNX1hrMdfR')
+        self.load_denomination('https://drive.google.com/uc?export=download&id=1XmGL7urCXwzYgLGvreyGFCo3c6YNv9Pe')
+        self.load_addresses('https://drive.google.com/uc?export=download&id=1guWNR7v-Hl94cYy62t3n2HQWC_fjHAbc')
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded companies and addresses.'))
 
     def load_companies(self, path):
