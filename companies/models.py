@@ -25,7 +25,7 @@ class Address(models.Model):
         return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
     
     def full_address(self):
-        return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
+        return f"{self.street} {self.house_number}, {self.postal_code}"
     
     def formatted_address(self):
         return f"{self.street} {self.house_number} {self.postal_code} {self.city}"

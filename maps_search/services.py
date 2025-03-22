@@ -73,12 +73,20 @@ def enrich_with_company_data(places_data):
         if possible_addresses.count() == 1:
             matched_company = possible_addresses.first().company
         
-        elif possible_addresses.count() > 1:   
+        elif possible_addresses.count() > 1:
+            best_score = 0   
             for possible_address in possible_addresses:
                 if possible_address.company.name.lower() == name:
                     matched_company = possible_address.company
                     break
-
+                
+                formatted_address = f'{street} {house_number} {postal_code}'
+                full_address = possible_address.full_address()
+                ratio = fuzz.WRatio(formatted_address, full_address)
+                if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
+                    best_score = ratio
+                    matched_company = possible_address.company
+                
         result = {
             "vat_number": matched_company.enterprise_number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
