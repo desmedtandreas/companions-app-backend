@@ -1,1 +1,1 @@
-web: gunicorn companions_deal_tracker.wsgi
+web: gunicorn companions_backend.wsgi
