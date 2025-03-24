@@ -25,24 +25,14 @@ class Command(BaseCommand):
             self.load_addresses(urls)
 
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded all data.'))
-
-    def stream_csv(self, url, delimiter=';', retries=3):
-        for attempt in range(retries):
-            try:
-                with requests.get(url, stream=True, timeout=60) as response:
-                    response.raise_for_status()
-                    lines = response.iter_lines(decode_unicode=True)
-                    reader = csv.DictReader(lines, delimiter=delimiter)
-                    for row in reader:
-                        yield row
-                break
-            except (ChunkedEncodingError, ConnectionError) as e:
-                if attempt < retries - 1:
-                    wait = 2 ** attempt
-                    self.stdout.write(f'⚠️  Retry {attempt+1}/{retries} after error: {e} — waiting {wait}s...')
-                    time.sleep(wait)
-                else:
-                    raise
+                
+    def stream_csv(self, url, delimiter=';'):
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            lines = (line.decode('utf-8') for line in response.iter_lines())
+            reader = csv.DictReader(lines, delimiter=delimiter)
+            for row in reader:
+                yield row
                     
     def parse_date(self, date_str):
         if not date_str:
