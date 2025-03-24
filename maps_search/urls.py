@@ -1,6 +1,6 @@
-from django.urls import path
-from .views import GoogleMapsPlacesAPIView
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
+from .views import GoogleMapsPlacesViewSet
 
 urlpatterns = [
-    path('', GoogleMapsPlacesAPIView.as_view(), name='google_maps_api'),
 ]

@@ -1,3 +1,4 @@
+import os
 import logging
 import requests
 from django.conf import settings
@@ -6,6 +7,7 @@ from companies.models import Company, Address
 from rapidfuzz import fuzz
 import hashlib
 import copy
+import json
 import re
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,11 @@ logger = logging.getLogger(__name__)
 SUFFIX_PATTERN = r'\b(bvba|bv|nv|cvba|cv|vzw|sprl|srl|asbl|gmbh|sa|plc|ltd|llc)\b$'
 FUZZY_MATCH_THRESHOLD = 80
 CACHE_TIMEOUT = 3600  # seconds (1 hour)
+
+DEV_CACHE_DIR = "dev_api_cache"
+DEV_MODE = settings.DEBUG
+
+os.makedirs(DEV_CACHE_DIR, exist_ok=True)
 
 def parse_address_string(address_string):
     # Pre-clean: remove leading bus/unit if present
@@ -76,21 +83,21 @@ def enrich_with_company_data(places_data):
         elif possible_addresses.count() > 1:
             best_score = 0   
             for possible_address in possible_addresses:
-                if possible_address.company.name.lower() == name:
+                company_name = normalize_name(possible_address.company.name)
+                if company_name == name:
                     matched_company = possible_address.company
                     break
                 
-                formatted_address = f'{street} {house_number} {postal_code}'
-                full_address = possible_address.full_address()
-                ratio = fuzz.WRatio(formatted_address, full_address)
+                ratio = fuzz.WRatio(company_name, name)
                 if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
                     best_score = ratio
                     matched_company = possible_address.company
                     
         else:
-            possible_companies = Company.objects.filter(name__iexact=name)
-            if possible_companies.exists():
-                matched_company = possible_companies.first()
+            companies = Company.objects.filter(name__iexact=name)
+            if companies.count() == 1:
+                matched_company = companies.first()
+            
                 
         result = {
             "company_name": matched_company.name if matched_company else None,
@@ -105,10 +112,20 @@ def enrich_with_company_data(places_data):
 
     return enriched
 
+def get_dev_cache_path(textQuery):
+    hashed = hashlib.md5(textQuery.encode()).hexdigest()
+    return os.path.join(DEV_CACHE_DIR, f"{hashed}.json")
+
 def GoogleMapsPlacesAPI(textQuery):
     cache_key = f"google_places:{hashlib.md5(textQuery.encode()).hexdigest()}"
+    
+    if DEV_MODE:
+        dev_cache_path = get_dev_cache_path(textQuery)
+        if os.path.exists(dev_cache_path):
+            with open(dev_cache_path, "r") as f:
+                return json.load(f)
+    
     cached_response = cache.get(cache_key)
-
     if cached_response:
         # Deep copy to avoid mutations
         return copy.deepcopy(cached_response)
@@ -152,5 +169,9 @@ def GoogleMapsPlacesAPI(textQuery):
 
     # Store a deep copy in cache to avoid future mutations
     cache.set(cache_key, copy.deepcopy(filtered_data), CACHE_TIMEOUT)
+    
+    if DEV_MODE:
+        with open(get_dev_cache_path(textQuery), "w") as f:
+            json.dump(filtered_data, f, indent=2)
 
     return filtered_data
