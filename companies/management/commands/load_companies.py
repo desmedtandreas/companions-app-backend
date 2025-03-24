@@ -12,7 +12,17 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.load_companies('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
         self.load_denomination('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv')
-        self.load_addresses('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address.csv')
+        
+        address_urls = [
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_1.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_2.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_3.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_4.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_5.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_6.csv',
+        ]
+        for urls in address_urls:
+            self.load_addresses(urls)
 
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded all data.'))
 
