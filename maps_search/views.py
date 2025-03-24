@@ -1,4 +1,4 @@
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
@@ -7,7 +7,7 @@ from django.core.cache import cache
 from maps_search.services import GoogleMapsPlacesAPI, enrich_with_company_data
 from maps_search.serializers import GoogleMapsPlacesSerializer
 
-class GoogleMapsPlacesViewSet(GenericViewSet):
+class GoogleMapsPlacesViewSet(ViewSet):
     def list(self, request):
         return Response({"info": "This is the maps API root."})
     
