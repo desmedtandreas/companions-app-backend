@@ -72,20 +72,22 @@ class Command(BaseCommand):
         count = 0
 
         for row in self.stream_csv(url, delimiter=';'):
-            count += 1
             denom_batch[row['EntityNumber']] = row['Denomination']
 
             if len(denom_batch) >= batch_size:
-                self._update_company_names(denom_batch)
+                amount = self._update_company_names(denom_batch)
+                count += amount
                 denom_batch.clear()
                 
 
         if denom_batch:
-            self._update_company_names(denom_batch)
+            amount = self._update_company_names(denom_batch)
+            count += amount
 
         self.stdout.write(self.style.SUCCESS(f'📝 {count} Denominations updated incrementally.'))
 
     def _update_company_names(self, denom_map):
+        count = 0
         companies = Company.objects.filter(number__in=denom_map.keys())
         companies_to_update = []
         for company in companies:
@@ -93,30 +95,34 @@ class Command(BaseCommand):
             if new_name and not company.name:
                 company.name = new_name
                 companies_to_update.append(company)
+                count += 1
 
         if companies_to_update:
             Company.objects.bulk_update(companies_to_update, ['name'], batch_size=500)
+        
+        return count
 
     def load_addresses(self, url):
         batch_size = 500
         address_batch = []
-        company_cache = {}
         count = 0
+
+        existing_company_ids = set(Address.objects.values_list('company_id', flat=True))
+        company_map = dict(Company.objects.values_list('number', 'id'))
 
         for row in self.stream_csv(url, delimiter=';'):
             enterprise_number = row['EntityNumber']
-            if enterprise_number not in company_cache:
-                try:
-                    company_cache[enterprise_number] = Company.objects.get(number=enterprise_number)
-                except Company.DoesNotExist:
-                    continue  # Skip if no matching company found
+            company_id = company_map.get(enterprise_number)
+
+            if not company_id:
+                continue  # No matching company
+
+            if company_id in existing_company_ids:
+                continue  # Address already exists for this company
 
             count += 1
-            company = company_cache[enterprise_number]
-            if Address.objects.get(company=company):
-                continue
             address_batch.append(Address(
-                company=company,
+                company_id=company_id,  # Use foreign key ID directly for faster instantiation
                 type=row['TypeOfAddress'],
                 street=row['Street'],
                 house_number=row['HouseNumber'],
@@ -125,10 +131,11 @@ class Command(BaseCommand):
             ))
 
             if len(address_batch) >= batch_size:
-                Address.objects.bulk_create(address_batch, batch_size=500)
+                Address.objects.bulk_create(address_batch, batch_size=batch_size)
+                existing_company_ids.update(a.company_id for a in address_batch)
                 address_batch.clear()
 
         if address_batch:
-            Address.objects.bulk_create(address_batch, batch_size=500)
+            Address.objects.bulk_create(address_batch, batch_size=batch_size)
 
-        self.stdout.write(self.style.SUCCESS(f'🏠 {count} Addresses loaded incrementally.'))
+        self.stdout.write(self.style.SUCCESS(f'🏠 {count} addresses loaded incrementally.'))
