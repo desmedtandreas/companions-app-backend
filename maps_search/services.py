@@ -126,18 +126,18 @@ def enrich_with_company_data(places_data):
             
             if len(possible_addresses) == 1:
                 matched_company = possible_addresses[0].company
-            elif len(possible_addresses) > 1:
-                best_score = 0
-                for possible_address in possible_addresses:
-                    company_name = normalize_name(possible_address.company.name)
-                    # If names match exactly, break early.
-                    if company_name == norm_name:
-                        matched_company = possible_address.company
-                        break
-                    ratio = fuzz.WRatio(company_name, norm_name)
-                    if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
-                        best_score = ratio
-                        matched_company = possible_address.company
+            # elif len(possible_addresses) > 1:
+            #     best_score = 0
+            #     for possible_address in possible_addresses:
+            #         company_name = normalize_name(possible_address.company.name)
+            #         # If names match exactly, break early.
+            #         if company_name == norm_name:
+            #             matched_company = possible_address.company
+            #             break
+            #         ratio = fuzz.WRatio(company_name, norm_name)
+            #         if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
+            #             best_score = ratio
+            #             matched_company = possible_address.company
         
         result = {
             "company_name": matched_company.name if matched_company else None,
