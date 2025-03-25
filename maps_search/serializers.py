@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 class GoogleMapsPlacesSerializer(serializers.Serializer):
+    place_id = serializers.CharField(max_length=255)
     name = serializers.CharField(max_length=255)
     company_name = serializers.CharField(max_length=255)
     address = serializers.CharField(max_length=255)

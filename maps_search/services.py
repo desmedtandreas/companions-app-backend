@@ -55,48 +55,42 @@ def enrich_with_company_data(places_data):
         matched_company = None
         street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
         name = normalize_name(place.get("name", ""))
-
-        normalized_key = f"{name}_{street}_{house_number}_{postal_code}"
-        cache_key = f"enriched_place:{hashlib.md5(normalized_key.encode()).hexdigest()}"
-        cached_result = cache.get(cache_key)
-
-        if cached_result is not None:
-            # Deep copy to avoid mutations
-            place.update(copy.deepcopy(cached_result))
-            enriched.append(place)
-            continue
-
-        if street and postal_code and house_number and city:
-            print('Address: ', street, house_number, postal_code, city)
-            possible_addresses = Address.objects.filter(
-                street=street,
-                postal_code=postal_code,
-                house_number=house_number,
-            ).select_related("company")
-            print('Possible addresses: ', possible_addresses)
-        else:
-            possible_addresses = Address.objects.none()
-            
-        if possible_addresses.count() == 1:
-            matched_company = possible_addresses.first().company
+        place_id = place.get("place_id")
         
-        elif possible_addresses.count() > 1:
-            best_score = 0   
-            for possible_address in possible_addresses:
-                company_name = normalize_name(possible_address.company.name)
-                if company_name == name:
-                    matched_company = possible_address.company
-                    break
-                
-                ratio = fuzz.WRatio(company_name, name)
-                if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
-                    best_score = ratio
-                    matched_company = possible_address.company
-                    
-        else:
+        if place_id:
+            matched_company = Company.objects.filter(maps_id=place_id).first()
+        
+        if matched_company is None:
             companies = Company.objects.filter(name__iexact=name)
             if companies.count() == 1:
                 matched_company = companies.first()
+            else:
+                if street and postal_code and house_number and city:
+                    print('Address: ', street, house_number, postal_code, city)
+                    possible_addresses = Address.objects.filter(
+                        street=street,
+                        postal_code=postal_code,
+                        house_number=house_number,
+                    ).select_related("company")
+                    print('Possible addresses: ', possible_addresses)
+                else:
+                    possible_addresses = Address.objects.none()
+                    
+                if possible_addresses.count() == 1:
+                    matched_company = possible_addresses.first().company
+                
+                elif possible_addresses.count() > 1:
+                    best_score = 0   
+                    for possible_address in possible_addresses:
+                        company_name = normalize_name(possible_address.company.name)
+                        if company_name == name:
+                            matched_company = possible_address.company
+                            break
+                        
+                        ratio = fuzz.WRatio(company_name, name)
+                        if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
+                            best_score = ratio
+                            matched_company = possible_address.company
             
                 
         result = {
@@ -104,8 +98,11 @@ def enrich_with_company_data(places_data):
             "vat_number": matched_company.number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
         }
-
-        cache.set(cache_key, copy.deepcopy(result), CACHE_TIMEOUT)
+        
+        if matched_company:
+            # Update the company with the place_id
+            matched_company.maps_id = place_id
+            matched_company.save()
 
         place.update(result)
         enriched.append(place)
@@ -133,7 +130,7 @@ def GoogleMapsPlacesAPI(textQuery):
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": settings.GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri"
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.websiteUri"
     }
 
     payload = {
@@ -160,6 +157,7 @@ def GoogleMapsPlacesAPI(textQuery):
     filtered_data = []
     for place in data.get("places", []):
         filtered_data.append({
+            'place_id': place.get('id'),
             'name': place.get('displayName', {}).get('text'),
             'address': place.get('formattedAddress'),
             'website': place.get('websiteUri'),
