@@ -77,7 +77,6 @@ def enrich_with_company_data(places_data):
         q_objects |= Q(name__iexact=name)
     
     companies_by_name_qs = Company.objects.filter(q_objects)
-    print("Pre-fetching companies by name took", time.time() - start, "seconds")
     
     # Map normalized names to companies
     companies_by_normalized_name = {}
@@ -89,6 +88,7 @@ def enrich_with_company_data(places_data):
     unique_company_by_name = {
         name: comps[0] for name, comps in companies_by_normalized_name.items() if len(comps) == 1
     }
+    print("Pre-fetching companies by name took", time.time() - start, "seconds")
     
     # 3. Bulk-fetch addresses:
     # Collect unique address keys from places with valid address info.
@@ -105,7 +105,6 @@ def enrich_with_company_data(places_data):
         street, postal_code, house_number = key
         addr_q |= Q(street=street, postal_code=postal_code, house_number=house_number)
     addresses = Address.objects.filter(addr_q).select_related("company") if addr_q else []
-    print("Pre-fetching addresses took", time.time() - start, "seconds")
     
     # Group addresses by (street, postal_code, house_number)
     addresses_by_key = {}
@@ -116,6 +115,7 @@ def enrich_with_company_data(places_data):
     # 4. Process each place and collect maps_id updates
     maps_id_updates = []  # to batch update maps_id later
     enriched = []
+    print("Pre-fetching addresses took", time.time() - start, "seconds")
     
     start = time.time()
     for place in places_data:
