@@ -52,6 +52,7 @@ def normalize_name(name):
 
 
 def enrich_with_company_data(places_data):
+    
     start = time.time()
     # 1. Pre-fetch companies by maps_id
     place_ids = {place.get("place_id") for place in places_data if place.get("place_id")}
@@ -59,6 +60,7 @@ def enrich_with_company_data(places_data):
         company.maps_id: company
         for company in Company.objects.filter(maps_id__in=place_ids)
     }
+    print("Pre-fetching companies took", time.time() - start, "seconds")
     
     # 2. Pre-fetch companies by normalized name using Q objects
     normalized_names = {
@@ -67,11 +69,13 @@ def enrich_with_company_data(places_data):
         if not (place.get("place_id") and place.get("place_id") in companies_by_maps_id)
     }
     
+    start = time.time()
     q_objects = Q()
     for name in normalized_names:
         q_objects |= Q(name__iexact=name)
     
     companies_by_name_qs = Company.objects.filter(q_objects)
+    print("Pre-fetching companies by name took", time.time() - start, "seconds")
     
     # Map normalized names to companies
     companies_by_normalized_name = {}
@@ -92,13 +96,14 @@ def enrich_with_company_data(places_data):
         if street and postal_code and house_number and city:
             address_keys.add((street, postal_code, house_number))
             
+    start = time.time()
     # Build a Q object to fetch all addresses for these keys.
     addr_q = Q()
     for key in address_keys:
         street, postal_code, house_number = key
         addr_q |= Q(street=street, postal_code=postal_code, house_number=house_number)
-    
     addresses = Address.objects.filter(addr_q).select_related("company") if addr_q else []
+    print("Pre-fetching addresses took", time.time() - start, "seconds")
     
     # Group addresses by (street, postal_code, house_number)
     addresses_by_key = {}
@@ -156,7 +161,6 @@ def enrich_with_company_data(places_data):
     for company_id, new_maps_id in maps_id_updates:
         Company.objects.filter(id=company_id).update(maps_id=new_maps_id)
     
-    print("Enrichment took", time.time() - start, "seconds")
     return enriched
 
 def get_dev_cache_path(textQuery):
