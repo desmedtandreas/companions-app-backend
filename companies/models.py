@@ -6,7 +6,7 @@ class Company(models.Model):
     status = models.CharField(max_length=255)
     type = models.CharField(max_length=255)
     start_date = models.DateField()
-    maps_id = models.CharField(max_length=255, blank=True, null=True)
+    maps_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
 
     def __str__(self):
         return self.name
