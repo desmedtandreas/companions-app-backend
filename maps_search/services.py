@@ -63,17 +63,21 @@ def enrich_with_company_data(places_data):
     print("Pre-fetching companies took", time.time() - start, "seconds")
     
     # 2. Pre-fetch companies by normalized name using Q objects
+    start = time.time()
     normalized_names = {
         normalize_name(place.get("name", ""))
         for place in places_data 
         if not (place.get("place_id") and place.get("place_id") in companies_by_maps_id)
     }
+    print("Normalizing names took", time.time() - start, "seconds")
     
+    start = time.time()
     q_objects = Q()
     for name in normalized_names:
         q_objects |= Q(name__iexact=name)
     
     companies_by_name_qs = Company.objects.filter(q_objects)
+    print("Pre-fetching companies by name took", time.time() - start, "seconds")
     
     # Map normalized names to companies
     companies_by_normalized_name = {}
@@ -88,6 +92,7 @@ def enrich_with_company_data(places_data):
     
     # 3. Bulk-fetch addresses:
     # Collect unique address keys from places with valid address info.
+    start = time.time()
     address_keys = set()
     for place in places_data:
         street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
@@ -100,6 +105,7 @@ def enrich_with_company_data(places_data):
         street, postal_code, house_number = key
         addr_q |= Q(street=street, postal_code=postal_code, house_number=house_number)
     addresses = Address.objects.filter(addr_q).select_related("company") if addr_q else []
+    print("Pre-fetching addresses took", time.time() - start, "seconds")
     
     # Group addresses by (street, postal_code, house_number)
     addresses_by_key = {}
@@ -154,10 +160,13 @@ def enrich_with_company_data(places_data):
         
         place.update(result)
         enriched.append(place)
+    print("Processing places took", time.time() - start, "seconds")
     
+    start = time.time()
     # 5. Batch update maps_id for companies where needed.
     for company_id, new_maps_id in maps_id_updates:
         Company.objects.filter(id=company_id).update(maps_id=new_maps_id)
+    print("Batch updating maps_id took", time.time() - start, "seconds")
     
     return enriched
 
