@@ -2,6 +2,8 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
+import time
+
 from django.core.cache import cache
 from companies.models import Company
 
@@ -24,9 +26,18 @@ class GoogleMapsPlacesViewSet(ViewSet):
             return Response(cached_data, status=200)
 
         try:
+            start = time.time()
             places = GoogleMapsPlacesAPI(text_query)
+            print("Processing places took", time.time() - start, "seconds")
+            
+            start = time.time()
             enriched_places = enrich_with_company_data(places)
+            print("Enriching places took", time.time() - start, "seconds")
+            
+            start = time.time()
             serializer = GoogleMapsPlacesSerializer(enriched_places, many=True)
+            print("Serializing places took", time.time() - start, "seconds")
+            
             cache.set(cache_key, serializer.data, timeout=3600)
             return Response(serializer.data, status=200)
         except Exception as e:
