@@ -114,6 +114,8 @@ def enrich_with_company_data(places_data):
     # 4. Process each place and collect maps_id updates
     maps_id_updates = []  # to batch update maps_id later
     enriched = []
+    
+    start = time.time()
     for place in places_data:
         matched_company = None
         street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
@@ -156,10 +158,13 @@ def enrich_with_company_data(places_data):
         
         place.update(result)
         enriched.append(place)
+    print("Processing places took", time.time() - start, "seconds")
     
+    start = time.time()
     # 5. Batch update maps_id for companies where needed.
     for company_id, new_maps_id in maps_id_updates:
         Company.objects.filter(id=company_id).update(maps_id=new_maps_id)
+    print("Batch updating maps_id took", time.time() - start, "seconds")
     
     return enriched
 
