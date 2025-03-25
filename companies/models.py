@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Lower
 
 class Company(models.Model):
     number = models.CharField(max_length=20, unique=True, db_index=True)
@@ -10,6 +11,11 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+    
+    class Meta:
+        indexes = [
+            models.Index(Lower('name'), name='company_name_lower_idx'),
+        ]
 
 class Address(models.Model):
     company = models.ForeignKey(Company, related_name='addresses', db_index=True, on_delete=models.CASCADE)
