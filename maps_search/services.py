@@ -51,30 +51,27 @@ def normalize_name(name):
 
 
 def enrich_with_company_data(places_data):
-    # Build caches for companies and addresses
-
     # 1. Pre-fetch companies by maps_id
-    place_ids = {place["place_id"] for place in places_data if place.get("place_id")}
+    place_ids = {place.get("place_id") for place in places_data if place.get("place_id")}
     companies_by_maps_id = {
         company.maps_id: company
         for company in Company.objects.filter(maps_id__in=place_ids)
     }
     
-    # 2. Gather normalized names from places that weren't matched by maps_id
+    # 2. Pre-fetch companies by normalized name using Q objects
     normalized_names = {
         normalize_name(place.get("name", ""))
         for place in places_data 
         if not (place.get("place_id") and place.get("place_id") in companies_by_maps_id)
     }
     
-    # 3. Build Q objects for a case-insensitive match
     q_objects = Q()
     for name in normalized_names:
         q_objects |= Q(name__iexact=name)
     
     companies_by_name_qs = Company.objects.filter(q_objects)
     
-    # Build a mapping: normalized name -> list of companies with that name
+    # Map normalized names to companies
     companies_by_normalized_name = {}
     for company in companies_by_name_qs:
         norm_name = normalize_name(company.name)
@@ -85,9 +82,30 @@ def enrich_with_company_data(places_data):
         name: comps[0] for name, comps in companies_by_normalized_name.items() if len(comps) == 1
     }
     
-    # 4. Create an address cache to avoid duplicate address queries
-    address_cache = {}
+    # 3. Bulk-fetch addresses:
+    # Collect unique address keys from places with valid address info.
+    address_keys = set()
+    for place in places_data:
+        street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
+        if street and postal_code and house_number and city:
+            address_keys.add((street, postal_code, house_number))
+            
+    # Build a Q object to fetch all addresses for these keys.
+    addr_q = Q()
+    for key in address_keys:
+        street, postal_code, house_number = key
+        addr_q |= Q(street=street, postal_code=postal_code, house_number=house_number)
     
+    addresses = Address.objects.filter(addr_q).select_related("company") if addr_q else []
+    
+    # Group addresses by (street, postal_code, house_number)
+    addresses_by_key = {}
+    for addr in addresses:
+        key = (addr.street, addr.postal_code, addr.house_number)
+        addresses_by_key.setdefault(key, []).append(addr)
+    
+    # 4. Process each place and collect maps_id updates
+    maps_id_updates = []  # to batch update maps_id later
     enriched = []
     for place in places_data:
         matched_company = None
@@ -95,32 +113,24 @@ def enrich_with_company_data(places_data):
         norm_name = normalize_name(place.get("name", ""))
         place_id = place.get("place_id")
         
-        # First try to match by maps_id
+        # Try matching by maps_id first.
         if place_id and place_id in companies_by_maps_id:
             matched_company = companies_by_maps_id[place_id]
-        # Then try to match by normalized company name (only if unique)
+        # Then try unique company by normalized name.
         elif norm_name in unique_company_by_name:
             matched_company = unique_company_by_name[norm_name]
-        # Finally, if we have address info, try matching based on addresses
+        # Finally, try matching via address.
         elif street and postal_code and house_number and city:
             key = (street, postal_code, house_number)
-            if key not in address_cache:
-                address_cache[key] = list(
-                    Address.objects.filter(
-                        street=street,
-                        postal_code=postal_code,
-                        house_number=house_number,
-                    ).select_related("company")
-                )
-            possible_addresses = address_cache[key]
+            possible_addresses = addresses_by_key.get(key, [])
             
             if len(possible_addresses) == 1:
                 matched_company = possible_addresses[0].company
             elif len(possible_addresses) > 1:
-                best_score = 0   
+                best_score = 0
                 for possible_address in possible_addresses:
                     company_name = normalize_name(possible_address.company.name)
-                    # Break early if names match exactly.
+                    # If names match exactly, break early.
                     if company_name == norm_name:
                         matched_company = possible_address.company
                         break
@@ -134,14 +144,16 @@ def enrich_with_company_data(places_data):
             "vat_number": matched_company.number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
         }
-        
-        # Update maps_id if necessary (consider batching these updates if many)
         if matched_company and matched_company.maps_id != place_id:
-            Company.objects.filter(id=matched_company.id).update(maps_id=place_id)
-
+            maps_id_updates.append((matched_company.id, place_id))
+        
         place.update(result)
         enriched.append(place)
-
+    
+    # 5. Batch update maps_id for companies where needed.
+    for company_id, new_maps_id in maps_id_updates:
+        Company.objects.filter(id=company_id).update(maps_id=new_maps_id)
+    
     return enriched
 
 def get_dev_cache_path(textQuery):
