@@ -10,7 +10,6 @@ import hashlib
 import copy
 import json
 import re
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -52,122 +51,63 @@ def normalize_name(name):
 
 
 def enrich_with_company_data(places_data):
-    
-    start = time.time()
-    # 1. Pre-fetch companies by maps_id
-    place_ids = {place.get("place_id") for place in places_data if place.get("place_id")}
-    companies_by_maps_id = {
-        company.maps_id: company
-        for company in Company.objects.filter(maps_id__in=place_ids)
-    }
-    print("Pre-fetching companies took", time.time() - start, "seconds")
-    
-    # 2. Pre-fetch companies by normalized name using Q objects
-    start = time.time()
-    normalized_names = {
-        normalize_name(place.get("name", ""))
-        for place in places_data 
-        if not (place.get("place_id") and place.get("place_id") in companies_by_maps_id)
-    }
-    print("Normalizing names took", time.time() - start, "seconds")
-    
-    start = time.time()
-    q_objects = Q()
-    for name in normalized_names:
-        q_objects |= Q(name__iexact=name)
-    
-    companies_by_name_qs = Company.objects.filter(q_objects)
-    
-    # Map normalized names to companies
-    companies_by_normalized_name = {}
-    for company in companies_by_name_qs:
-        norm_name = normalize_name(company.name)
-        companies_by_normalized_name.setdefault(norm_name, []).append(company)
-    
-    # Only keep unique matches (i.e. exactly one company for a normalized name)
-    unique_company_by_name = {
-        name: comps[0] for name, comps in companies_by_normalized_name.items() if len(comps) == 1
-    }
-    print("Pre-fetching companies by name took", time.time() - start, "seconds")
-    
-    # 3. Bulk-fetch addresses:
-    # Collect unique address keys from places with valid address info.
-    start = time.time()
-    address_keys = set()
-    for place in places_data:
-        street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
-        if street and postal_code and house_number and city:
-            address_keys.add((street, postal_code, house_number))
-            
-    # Build a Q object to fetch all addresses for these keys.
-    addr_q = Q()
-    for key in address_keys:
-        street, postal_code, house_number = key
-        addr_q |= Q(street=street, postal_code=postal_code, house_number=house_number)
-    addresses = Address.objects.filter(addr_q).select_related("company") if addr_q else []
-    
-    # Group addresses by (street, postal_code, house_number)
-    addresses_by_key = {}
-    for addr in addresses:
-        key = (addr.street, addr.postal_code, addr.house_number)
-        addresses_by_key.setdefault(key, []).append(addr)
-    
-    # 4. Process each place and collect maps_id updates
-    maps_id_updates = []  # to batch update maps_id later
     enriched = []
-    print("Pre-fetching addresses took", time.time() - start, "seconds")
-    
-    start = time.time()
+
     for place in places_data:
         matched_company = None
         street, house_number, postal_code, city = parse_address_string(place.get("address", ""))
-        norm_name = normalize_name(place.get("name", ""))
+        name = normalize_name(place.get("name", ""))
         place_id = place.get("place_id")
         
-        # Try matching by maps_id first.
-        if place_id and place_id in companies_by_maps_id:
-            matched_company = companies_by_maps_id[place_id]
-        # Then try unique company by normalized name.
-        elif norm_name in unique_company_by_name:
-            matched_company = unique_company_by_name[norm_name]
-        # Finally, try matching via address.
-        elif street and postal_code and house_number and city:
-            key = (street, postal_code, house_number)
-            possible_addresses = addresses_by_key.get(key, [])
-            
-            if len(possible_addresses) == 1:
-                matched_company = possible_addresses[0].company
-            elif len(possible_addresses) > 1:
-                best_score = 0
-                for possible_address in possible_addresses:
-                    company_name = normalize_name(possible_address.company.name)
-                    # If names match exactly, break early.
-                    if company_name == norm_name:
-                        matched_company = possible_address.company
-                        break
-                    ratio = fuzz.WRatio(company_name, norm_name)
-                    if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
-                        best_score = ratio
-                        matched_company = possible_address.company
+        if place_id:
+            matched_company = Company.objects.filter(maps_id=place_id).first()
         
+        if matched_company is None:
+            companies = Company.objects.filter(name__iexact=name)
+            company = companies.first()
+            if company and not companies[1:2].exists():  # ensures only one
+                matched_company = company
+            else:
+                if street and postal_code and house_number and city:
+                    print('Address: ', street, house_number, postal_code, city)
+                    possible_addresses = Address.objects.filter(
+                        street=street,
+                        postal_code=postal_code,
+                        house_number=house_number,
+                    ).select_related("company")
+                    print('Possible addresses: ', possible_addresses)
+                else:
+                    possible_addresses = Address.objects.none()
+                    
+                if possible_addresses.count() == 1:
+                    matched_company = possible_addresses.first().company
+                
+                elif possible_addresses.count() > 1:
+                    best_score = 0   
+                    for possible_address in possible_addresses:
+                        company_name = normalize_name(possible_address.company.name)
+                        if company_name == name:
+                            matched_company = possible_address.company
+                            break
+                        
+                        ratio = fuzz.WRatio(company_name, name)
+                        if ratio > FUZZY_MATCH_THRESHOLD and ratio > best_score:
+                            best_score = ratio
+                            matched_company = possible_address.company
+            
+                
         result = {
             "company_name": matched_company.name if matched_company else None,
             "vat_number": matched_company.number if matched_company else None,
             "company_id": matched_company.id if matched_company else None,
         }
-        if matched_company and matched_company.maps_id != place_id:
-            maps_id_updates.append((matched_company.id, place_id))
         
+        if matched_company and matched_company.maps_id != place_id:
+            Company.objects.filter(id=matched_company.id).update(maps_id=place_id)
+
         place.update(result)
         enriched.append(place)
-    print("Processing places took", time.time() - start, "seconds")
-    
-    start = time.time()
-    # 5. Batch update maps_id for companies where needed.
-    for company_id, new_maps_id in maps_id_updates:
-        Company.objects.filter(id=company_id).update(maps_id=new_maps_id)
-    print("Batch updating maps_id took", time.time() - start, "seconds")
-    
+
     return enriched
 
 def get_dev_cache_path(textQuery):
