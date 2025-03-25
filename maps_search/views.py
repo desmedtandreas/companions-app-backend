@@ -24,7 +24,6 @@ class GoogleMapsPlacesViewSet(ViewSet):
             return Response(cached_data, status=200)
 
         try:
-            s
             places = GoogleMapsPlacesAPI(text_query)
             enriched_places = enrich_with_company_data(places)
             serializer = GoogleMapsPlacesSerializer(enriched_places, many=True)
