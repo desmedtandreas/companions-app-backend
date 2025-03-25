@@ -62,8 +62,9 @@ def enrich_with_company_data(places_data):
         
         if matched_company is None:
             companies = Company.objects.filter(name__iexact=name)
-            if companies.count() == 1:
-                matched_company = companies.first()
+            company = companies.first()
+            if company and not companies[1:2].exists():  # ensures only one
+                matched_company = company
             else:
                 if street and postal_code and house_number and city:
                     print('Address: ', street, house_number, postal_code, city)
@@ -99,7 +100,7 @@ def enrich_with_company_data(places_data):
             "company_id": matched_company.id if matched_company else None,
         }
         
-        if matched_company.maps_id != place_id:
+        if matched_company and matched_company.maps_id != place_id:
             Company.objects.filter(id=matched_company.id).update(maps_id=place_id)
 
         place.update(result)
