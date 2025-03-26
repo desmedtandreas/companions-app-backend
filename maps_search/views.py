@@ -17,25 +17,26 @@ class GoogleMapsPlacesViewSet(ViewSet):
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         text_query = request.query_params.get('textQuery', '')
+        next_page_token = request.query_params.get('nextPageToken', None)
         if not text_query:
             return Response({"error": "textQuery parameter is required"}, status=400)
         
-        cache_key = f"places_search:{text_query.lower()}"
+        cache_key = f"places_search:{text_query.lower()}_page:{next_page_token}"
         cached_data = cache.get(cache_key)
         if cached_data:
             return Response(cached_data, status=200)
 
         try:
             start = time.time()
-            places = GoogleMapsPlacesAPI(text_query)
+            data = GoogleMapsPlacesAPI(text_query, next_page_token)
             print("Processing places took", time.time() - start, "seconds")
             
             start = time.time()
-            enriched_places = enrich_with_company_data(places)
+            data['places'] = enrich_with_company_data(data['places'])
             print("Enriching places took", time.time() - start, "seconds")
             
             start = time.time()
-            serializer = GoogleMapsPlacesSerializer(enriched_places, many=True)
+            serializer = GoogleMapsPlacesSerializer(instance=data)
             print("Serializing places took", time.time() - start, "seconds")
             
             cache.set(cache_key, serializer.data, timeout=3600)

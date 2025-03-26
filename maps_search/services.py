@@ -69,7 +69,6 @@ def enrich_with_company_data(places_data):
                 matched_company = company
             else:
                 if street and postal_code and house_number and city:
-                    print('Address: ', street, house_number, postal_code, city)
                     possible_addresses = Address.objects.filter(
                         street=street,
                         postal_code=postal_code,
@@ -110,39 +109,51 @@ def enrich_with_company_data(places_data):
 
     return enriched
 
-def get_dev_cache_path(textQuery):
-    hashed = hashlib.md5(textQuery.encode()).hexdigest()
+def get_dev_cache_path(textQuery, nextPageToken=None):
+    safe_text = re.sub(r'[^a-zA-Z0-9_-]', '_', textQuery)
+    safe_token = re.sub(r'[^a-zA-Z0-9_-]', '_', nextPageToken) if nextPageToken else ''
+    
+    base_string = f"{safe_text}_{safe_token}" if nextPageToken else safe_text
+    hashed = hashlib.md5(base_string.encode('utf-8')).hexdigest()
+    
     return os.path.join(DEV_CACHE_DIR, f"{hashed}.json")
 
-def GoogleMapsPlacesAPI(textQuery):
-    cache_key = f"google_places:{hashlib.md5(textQuery.encode()).hexdigest()}"
+def GoogleMapsPlacesAPI(textQuery, nextPageToken=None):
+
     
     if DEV_MODE:
-        dev_cache_path = get_dev_cache_path(textQuery)
+        dev_cache_path = get_dev_cache_path(textQuery, nextPageToken)
         if os.path.exists(dev_cache_path):
             with open(dev_cache_path, "r") as f:
                 return json.load(f)
-    
-    cached_response = cache.get(cache_key)
-    if cached_response:
-        # Deep copy to avoid mutations
-        return copy.deepcopy(cached_response)
 
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": settings.GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.websiteUri"
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.websiteUri,nextPageToken"
     }
 
-    payload = {
-        "textQuery": textQuery,
-        "locationRestriction": {
-            "rectangle": {
-                "low": {"latitude": 51, "longitude": 2.5},
-                "high": {"latitude": 51.5, "longitude": 6}
+    if nextPageToken:
+        payload = {
+            "textQuery": textQuery,
+            "locationRestriction": {
+                "rectangle": {
+                    "low": {"latitude": 51, "longitude": 2.5},
+                    "high": {"latitude": 51.5, "longitude": 6}
+                }
+            },
+            "pageToken": nextPageToken
+        }
+    else:
+        payload = {
+            "textQuery": textQuery,
+            "locationRestriction": {
+                "rectangle": {
+                    "low": {"latitude": 51, "longitude": 2.5},
+                    "high": {"latitude": 51.5, "longitude": 6}
+                }
             }
         }
-    }
 
     try:
         response = requests.post(
@@ -155,9 +166,9 @@ def GoogleMapsPlacesAPI(textQuery):
     except requests.exceptions.RequestException as e:
         raise Exception(f"Request failed: {e}")
 
-    filtered_data = []
+    places = []
     for place in data.get("places", []):
-        filtered_data.append({
+        places.append({
             'place_id': place.get('id'),
             'name': place.get('displayName', {}).get('text'),
             'address': place.get('formattedAddress'),
@@ -166,11 +177,13 @@ def GoogleMapsPlacesAPI(textQuery):
             'company_id': None,
         })
 
-    # Store a deep copy in cache to avoid future mutations
-    cache.set(cache_key, copy.deepcopy(filtered_data), CACHE_TIMEOUT)
-    
+    filtered_data = {
+        "places": places,
+        "nextPageToken": data.get("nextPageToken"),
+    }
+
     if DEV_MODE:
-        with open(get_dev_cache_path(textQuery), "w") as f:
+        with open(get_dev_cache_path(textQuery, nextPageToken), "w") as f:
             json.dump(filtered_data, f, indent=2)
 
     return filtered_data
