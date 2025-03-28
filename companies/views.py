@@ -18,11 +18,10 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
         
-        
         if 'postgresql' in connection.vendor:
             if query:
                 
-                search_vector = SearchVector('name', 'number')
+                search_vector = SearchVector('search_vector')
                 search_query = SearchQuery(query)
                 search_rank = SearchRank(search_vector, search_query)
                 

@@ -1,6 +1,8 @@
 from django.db import models
 from django.db.models.functions import Lower
 from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.search import SearchVector
+from django.contrib.postgres.indexes import GinIndex
 
 class CodeLabel(models.Model):
     code = models.CharField(max_length=255)
@@ -28,8 +30,14 @@ class Company(models.Model):
     class Meta:
         indexes = [
             models.Index(Lower('name'), name='company_name_lower_idx'),
-            models.Index('search_vector', name='company_search_vector_idx'),
+            GinIndex(fields=['search_vector'], name='company_search_vector_idx'),
             ]
+        
+    def save(self, *args, **kwargs):
+        self.search_vector = (
+            SearchVector('name', weight='A') + SearchVector('number', weight='B')
+        )
+        super().save(*args, **kwargs)
 
 class Address(models.Model):
     company = models.ForeignKey(Company, related_name='addresses', db_index=True, on_delete=models.CASCADE)
