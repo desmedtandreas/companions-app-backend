@@ -36,8 +36,7 @@ class CompanyViewSet(ReadOnlyModelViewSet):
 
     def get_object(self):
         enterprise_number = self.kwargs.get("number")
-        parsed_number = parse_enterprise_number_dotted(enterprise_number)
-        return get_object_or_404(Company, number=parsed_number)
+        return get_object_or_404(Company, number=enterprise_number)
 
     @action(detail=True, methods=["get"], url_path="full")
     def full(self, request, number=None):
@@ -55,7 +54,6 @@ class AnnualAccountViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         enterprise_number = self.kwargs.get("number")
-        enterprise_number = parse_enterprise_number_dotted(enterprise_number)
         print(f"Fetching accounts for {enterprise_number}")
         # Try to fetch the company
         try:
