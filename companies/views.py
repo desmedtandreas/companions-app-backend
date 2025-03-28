@@ -21,10 +21,14 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
         
         if 'postgresql' in connection.vendor:
             if query:
+                
+                search_vector = SearchVector('name', 'number')
                 search_query = SearchQuery(query)
+                search_rank = SearchRank(search_vector, search_query)
+                
                 qs = qs.annotate(
-                    rank=SearchRank(SearchVector('name', 'number'), search_query)
-                ).filter(rank__gte=0.1).order_by('-rank')
+                    rank=search_rank
+                ).order_by('-rank')
                 
         else:
             # Fallback for other databases
@@ -34,7 +38,7 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
                 )
 
         # Limit results and sort them by name
-        return qs.order_by("name")[:1000]
+        return qs[:1000]
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):

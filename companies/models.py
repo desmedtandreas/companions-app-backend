@@ -20,7 +20,6 @@ class Company(models.Model):
     type = models.CharField(max_length=255)
     start_date = models.DateField()
     maps_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
-    
     search_vector = SearchVectorField(null=True)
 
     def __str__(self):
@@ -31,13 +30,6 @@ class Company(models.Model):
             models.Index(Lower('name'), name='company_name_lower_idx'),
             models.Index('search_vector', name='company_search_vector_idx'),
             ]
-
-    def save(self, *args, **kwargs):
-        from django.contrib.postgres.search import SearchVector
-        self.search_vector = (
-            SearchVector('name', weight='A') + SearchVector('number', weight='B')
-        )
-        super().save(*args, **kwargs)
 
 class Address(models.Model):
     company = models.ForeignKey(Company, related_name='addresses', db_index=True, on_delete=models.CASCADE)
