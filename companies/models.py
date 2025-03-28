@@ -81,7 +81,7 @@ class Administrator(models.Model):
     mandate = models.CharField(max_length=255)
     
     # The company that is managed by administrator
-    annual_account = models.ForeignKey(AnnualAccount, related_name='administrators', on_delete=models.CASCADE)
+    annual_account = models.ForeignKey(AnnualAccount, related_name='administrators', on_delete=models.CASCADE, null=True, blank=True)
     
     def __str__(self):
         if self.administering_company:
