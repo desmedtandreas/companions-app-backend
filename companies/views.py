@@ -17,24 +17,11 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
-        
-        if 'postgresql' in connection.vendor:
-            if query:
-                
-                search_vector = SearchVector('search_vector')
-                search_query = SearchQuery(query)
-                search_rank = SearchRank(search_vector, search_query)
-                
-                qs = qs.annotate(
-                    rank=search_rank
-                ).filter(rank__gte=0.01).order_by('-rank')
-                
-        else:
-            # Fallback for other databases
-            if query:
-                qs = qs.filter(
-                    Q(name__icontains=query) | Q(number__icontains=query)
-                )
+
+        if query:
+            qs = qs.filter(
+                Q(name__icontains=query) | Q(number__icontains=query)
+            )
 
         # Limit results and sort them by name
         return qs
