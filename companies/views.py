@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.db import connection
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 
 from .models import Company, AnnualAccount
 from .serializers import CompanySerializer, CompanyFullSerializer, AnnualAccountSerializer
@@ -16,17 +17,17 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
-
-        # Explicitly check for PostgreSQL database
+        
+        
         if 'postgresql' in connection.vendor:
             if query:
-                print("Generated SQL Query:", str(qs.query))
+                search_query = SearchQuery(query)
+                qs = qs.annotate(
+                    rank=SearchRank(SearchVector('name', 'number'), search_query)
+                ).filter(rank__gte=0.1).order_by('-rank')
                 
-                qs = qs.filter(
-                    Q(name__trigram_similar=query) | Q(number__trigram_similar=query)
-                )
         else:
-            # Use icontains for SQLite or other databases
+            # Fallback for other databases
             if query:
                 qs = qs.filter(
                     Q(name__icontains=query) | Q(number__icontains=query)
