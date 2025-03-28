@@ -8,5 +8,6 @@ router.register(r'maps', GoogleMapsPlacesViewSet, basename='maps')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
+    path('api/', include(router.urls)),                # existing
+    path('api/', include('companies.urls')), 
 ]

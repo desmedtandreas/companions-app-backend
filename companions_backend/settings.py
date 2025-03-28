@@ -33,6 +33,10 @@ GOOGLE_MAPS_API_KEY = os.environ.get(
     "GOOGLE_MAPS_API_KEY",
 )
 
+NBB_API_KEY = os.environ.get(
+    "NBB_API_KEY",
+)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("ENVIRONMENT") == "development"
 
