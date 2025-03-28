@@ -54,7 +54,7 @@ class Address(models.Model):
 class AnnualAccount(models.Model):
     company = models.ForeignKey(Company, related_name='annual_accounts', on_delete=models.CASCADE)
     reference = models.CharField(max_length=255, unique=True)
-    end_fiscal_year = models.DateField()
+    end_fiscal_year = models.DateField(default=None, blank=True, null=True)
     
     def __str__(self):
         return self.reference
