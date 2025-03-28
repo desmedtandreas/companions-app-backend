@@ -1,10 +1,9 @@
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from django.conf import settings
+from django.db import connection
 
 from .models import Company, AnnualAccount
 from .serializers import CompanySerializer, CompanyFullSerializer, AnnualAccountSerializer
@@ -18,18 +17,20 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
 
-        if settings.DEBUG:
-            if query:
-                    qs = qs.filter(
-                        Q(name__icontains=query) | Q(number__icontains=query)
-                    )
-        else:
+        # Explicitly check for PostgreSQL database
+        if 'postgresql' in connection.vendor:
             if query:
                 qs = qs.filter(
                     Q(name__trigram_similar=query) | Q(number__trigram_similar=query)
                 )
-            
-        
+        else:
+            # Use icontains for SQLite or other databases
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(number__icontains=query)
+                )
+
+        # Limit results and sort them by name
         return qs.order_by("name")[:1000]
         
 

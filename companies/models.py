@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.models.functions import Lower
 from django.contrib.postgres.indexes import GinIndex
-from django.contrib.postgres.operations import TrigramExtension
 
 class CodeLabel(models.Model):
     code = models.CharField(max_length=255)
