@@ -24,7 +24,7 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
             )
 
         # Limit results and sort them by name
-        return qs
+        return qs[:20]
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):
