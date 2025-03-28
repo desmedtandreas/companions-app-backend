@@ -28,7 +28,7 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
                 
                 qs = qs.annotate(
                     rank=search_rank
-                ).filter(rank__gte=0.5).order_by('-rank')
+                ).filter(rank__gte=0.01).order_by('-rank')
                 
         else:
             # Fallback for other databases
@@ -38,7 +38,7 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
                 )
 
         # Limit results and sort them by name
-        return qs[:1000]
+        return qs
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):
