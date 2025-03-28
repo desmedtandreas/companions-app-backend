@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models.functions import Lower
+from django.contrib.postgres.indexes import GinIndex
 
 class CodeLabel(models.Model):
     code = models.CharField(max_length=255)
@@ -26,6 +27,8 @@ class Company(models.Model):
     class Meta:
         indexes = [
             models.Index(Lower('name'), name='company_name_lower_idx'),
+            GinIndex(fields=["name"], name="company_name_trgm"),
+            GinIndex(fields=["number"], name="company_number_trgm"),
         ]
 
 class Address(models.Model):

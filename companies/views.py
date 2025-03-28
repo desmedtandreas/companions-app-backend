@@ -26,7 +26,7 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
             
         print("Matching companies:", qs.count())
         
-        return qs.order_by("name")
+        return qs.order_by("name")[:100]
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):
