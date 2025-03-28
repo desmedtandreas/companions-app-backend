@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.conf import settings
 
 from .models import Company, AnnualAccount
 from .serializers import CompanySerializer, CompanyFullSerializer, AnnualAccountSerializer
@@ -16,17 +17,20 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
-        
-        print("Search query:", query)
 
-        if query:
-            qs = qs.filter(
-                Q(name__icontains=query) | Q(number__icontains=query)
-            )
+        if settings.DEBUG:
+            if query:
+                    qs = qs.filter(
+                        Q(name__icontains=query) | Q(number__icontains=query)
+                    )
+        else:
+            if query:
+                qs = qs.filter(
+                    Q(name__trigram_similar=query) | Q(number__trigram_similar=query)
+                )
             
-        print("Matching companies:", qs.count())
         
-        return qs.order_by("name")[:100]
+        return qs.order_by("name")[:1000]
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):
