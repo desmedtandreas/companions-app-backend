@@ -17,18 +17,20 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
         query = self.request.query_params.get("q", "")
         qs = Company.objects.all()
 
-        # # Explicitly check for PostgreSQL database
-        # if 'postgresql' in connection.vendor:
-        #     if query:
-        #         qs = qs.filter(
-        #             Q(name__trigram_similar=query) | Q(number__trigram_similar=query)
-        #         )
-        # else:
-        #     # Use icontains for SQLite or other databases
-        if query:
-            qs = qs.filter(
-                Q(name__icontains=query) | Q(number__icontains=query)
-            )
+        # Explicitly check for PostgreSQL database
+        if 'postgresql' in connection.vendor:
+            if query:
+                print("Generated SQL Query:", str(qs.query))
+                
+                qs = qs.filter(
+                    Q(name__trigram_similar=query) | Q(number__trigram_similar=query)
+                )
+        else:
+            # Use icontains for SQLite or other databases
+            if query:
+                qs = qs.filter(
+                    Q(name__icontains=query) | Q(number__icontains=query)
+                )
 
         # Limit results and sort them by name
         return qs.order_by("name")[:1000]
