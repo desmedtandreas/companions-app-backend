@@ -1,13 +1,12 @@
 from django.db import transaction
 
 from .nbb_api import get_references, get_accounting_data
-from .utils import parse_enterprise_number, parse_enterprise_number_dotted, resolve_label
+from .utils import resolve_label
 from .models import Company, AnnualAccount, FinancialRubric, Administrator, Person
 
 @transaction.atomic
 def import_financials(enterprise_number):
-    enterprise_number = parse_enterprise_number(enterprise_number)
-    company = Company.objects.get(number=parse_enterprise_number_dotted(enterprise_number))
+    company = Company.objects.get(number=enterprise_number)
     references = get_references(enterprise_number)
     
     incoming_refs = [
@@ -73,7 +72,10 @@ def import_financials(enterprise_number):
         
         for legalEntity in accounting_data.get('Administrators', {}).get('LegalPersons', []):
             company_number = legalEntity.get('Entity', {}).get('Identifier')
-            company_obj, _ = Company.objects.get_or_create(number=parse_enterprise_number_dotted(company_number))
+            try:
+                company_obj = Company.objects.get(number=company_number)
+            except Company.DoesNotExist:
+                continue
 
             incoming_administrators.append({
                 "administering_company": company_obj,
