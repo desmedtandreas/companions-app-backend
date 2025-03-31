@@ -3,8 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from django.db import connection
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+import re
 
 from .models import Company, AnnualAccount
 from .serializers import CompanySerializer, CompanyFullSerializer, AnnualAccountSerializer
@@ -16,6 +15,9 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         query = self.request.query_params.get("q", "")
+        # Normalize the query
+        query = re.sub(r"\s+", " ", query).strip()
+        
         qs = Company.objects.all()
 
         if query:
