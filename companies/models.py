@@ -81,7 +81,6 @@ class Person(models.Model):
 class Administrator(models.Model):
     administering_company = models.ForeignKey(Company, related_name='participations', blank=True, null=True, on_delete=models.CASCADE)
     representatives = models.ManyToManyField(Person, related_name='roles')
-    mandate = models.CharField(max_length=255)
     
     # The company that is managed by administrator
     annual_account = models.ForeignKey(AnnualAccount, related_name='administrators', on_delete=models.CASCADE, null=True, blank=True)

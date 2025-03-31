@@ -86,12 +86,11 @@ def import_financials(enterprise_number):
             })
 
         for naturalPerson in accounting_data.get('Administrators', {}).get('NaturalPersons', []):
+            representatives = naturalPerson.get('Person', {})
+
             incoming_administrators.append({
                 "administering_company": None,
-                "representatives": [naturalPerson.get('Person')],
-                "mandate": resolve_label(
-                    naturalPerson.get('Mandates', [{}])[0].get('FunctionMandate'), 'function'
-                ) or 'Bestuurder'
+                "representatives": representatives,
             })
             
         for item in incoming_administrators:
