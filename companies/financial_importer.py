@@ -80,13 +80,10 @@ def import_financials(enterprise_number):
             incoming_administrators.append({
                 "administering_company": company_obj,
                 "representatives": legalEntity.get('Representatives'),
-                "mandate": resolve_label(
-                    legalEntity.get('Mandates', [{}])[0].get('FunctionMandate'), 'function'
-                ) or 'Bestuurder'
             })
 
         for naturalPerson in accounting_data.get('Administrators', {}).get('NaturalPersons', []):
-            representatives = naturalPerson.get('Person', {})
+            representatives = [naturalPerson.get('Person', {})]
 
             incoming_administrators.append({
                 "administering_company": None,
@@ -97,19 +94,20 @@ def import_financials(enterprise_number):
             reps_data = item["representatives"]
             reps = []
 
-            for rep in reps_data:
-                if not rep:
-                    continue
-                person, _ = Person.objects.get_or_create(
-                    first_name=rep.get("FirstName", "").strip(),
-                    last_name=rep.get("LastName", "").strip()
-                )
-                reps.append(person)
+            if reps_data and len(reps_data) >= 1:
+                print(reps_data)
+                for rep in reps_data:
+                    if not rep:
+                        continue
+                    person, _ = Person.objects.get_or_create(
+                        first_name=rep.get("FirstName", "").strip(),
+                        last_name=rep.get("LastName", "").strip()
+                    )
+                    reps.append(person)
 
             admin, _ = Administrator.objects.get_or_create(
                 administering_company=item["administering_company"],
                 annual_account=account_lookup[ref],
-                mandate=item["mandate"]
             )
 
             admin.representatives.set(reps)         
