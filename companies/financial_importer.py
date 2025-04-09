@@ -1,4 +1,5 @@
 from django.db import transaction
+import requests
 
 from datetime import datetime
 from .nbb_api import get_references, get_accounting_data
@@ -45,7 +46,15 @@ def import_financials(enterprise_number):
     # Cache companies for admin/participations
     referenced_company_ids = set()
     for ref in new_references:
-        data = get_accounting_data(ref)
+        try:
+            data = get_accounting_data(ref)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                continue
+            else:
+                continue
+        except Exception as e:
+            continue
         for legal in data.get('Administrators', {}).get('LegalPersons', []):
             if id := legal.get('Entity', {}).get('Identifier'):
                 referenced_company_ids.add(id)
@@ -63,7 +72,12 @@ def import_financials(enterprise_number):
     for ref in new_references:
         try:
             accounting_data = get_accounting_data(ref)
-        except Exception:
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                continue
+            else:
+                continue
+        except Exception as e:
             continue
 
         annual_account = account_lookup[ref]

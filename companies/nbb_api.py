@@ -22,9 +22,12 @@ def get_references(enterprise_number):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Request failed: {e}")
-    
+    except Exception as e:
+        if response.status_code == 404:
+            return {}
+        else:
+            raise e
+
     return data
     
     
@@ -43,8 +46,11 @@ def get_accounting_data(reference_number):
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Request failed: {e}")
-    
+    except Exception as e:
+        if response.status_code == 404:
+            return {}
+        else:
+            raise e
+
     return data
         

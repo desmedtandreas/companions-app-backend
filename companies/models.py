@@ -20,6 +20,7 @@ class Company(models.Model):
     enterprise_type_code = models.CharField(max_length=255)
     legalform_code = models.CharField(max_length=255, blank=True, null=True)
     start_date = models.DateField()
+    website = models.CharField(max_length=255,blank=True, null=True)
     maps_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     fin_fetch = models.DateField(blank=True, null=True)
     tags = TaggableManager(blank=True)
