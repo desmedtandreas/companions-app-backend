@@ -4,6 +4,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from companies.models import Company, Address
 from companies.utils import parse_enterprise_number
+import gc
 
 
 class Command(BaseCommand):
@@ -11,7 +12,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.load_companies('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
+        gc.collect()  # Force garbage collection to free up memory
+        
         self.load_denomination('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv')
+        gc.collect()
         
         address_urls = [
             'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_1.csv',
@@ -23,9 +27,10 @@ class Command(BaseCommand):
         ]
         for urls in address_urls:
             self.load_addresses(urls)
+            gc.collect()
             
         self.update_legal_forms('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
-
+        gc.collect()
         self.stdout.write(self.style.SUCCESS('✅ Successfully loaded all data.'))
                 
     def stream_csv(self, url, delimiter=';'):
