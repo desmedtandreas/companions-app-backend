@@ -104,7 +104,9 @@ def enrich_with_company_data(places_data):
         }
         
         if matched_company and matched_company.maps_id != place_id:
-            Company.objects.filter(id=matched_company.id).update(maps_id=place_id)
+            company = Company.objects.filter(id=matched_company.id)
+            company.update(maps_id=place_id)
+            company.update(website=place.get("website"))
 
         place.update(result)
         enriched.append(place)
