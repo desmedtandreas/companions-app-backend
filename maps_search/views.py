@@ -56,7 +56,7 @@ class GoogleMapsPlacesViewSet(ViewSet):
         vat_number = request.data.get('vat_number')
         place_id = request.data.get('place_id')
         text_query = request.data.get('text_query')
-        website = request.data.get('website')
+        website = request.data.get('website', None)
 
         if not vat_number or not place_id:
             return Response({"error": "vat_number and place_id are required"}, status=400)
