@@ -10,19 +10,19 @@ class Command(BaseCommand):
     help = 'Load companies from CSV files (enterprise, denomination, addresses)'
 
     def handle(self, *args, **options):
-        # self.load_companies('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
-        # self.load_denomination('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv')
+        self.load_companies('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
+        self.load_denomination('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/denomination.csv')
         
-        # address_urls = [
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_1.csv',
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_2.csv',
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_3.csv',
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_4.csv',
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_5.csv',
-        #     'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_6.csv',
-        # ]
-        # for urls in address_urls:
-        #     self.load_addresses(urls)
+        address_urls = [
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_1.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_2.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_3.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_4.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_5.csv',
+            'https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/address_part_6.csv',
+        ]
+        for urls in address_urls:
+            self.load_addresses(urls)
             
         self.update_legal_forms('https://github.com/desmedtandreas/companions-app-backend/releases/download/company_data/enterprise.csv')
 
@@ -144,17 +144,26 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'🏠 {count} addresses loaded incrementally.'))
         
     def update_legal_forms(self, url):
-        company_map = {c.number: c for c in Company.objects.all()}
+        number_to_legalform = {}
+
+        # Step 1: Collect legal forms from the CSV
+        for row in self.stream_csv(url, delimiter=';'):
+            number = parse_enterprise_number(row['EnterpriseNumber'])
+            legal_form = row.get('JuridicalForm')
+            if number and legal_form:
+                number_to_legalform[number] = legal_form
+
+        # Step 2: Only fetch companies that are in the CSV
+        companies = Company.objects.filter(number__in=number_to_legalform.keys()).only("id", "number", "legalform_code")
+
         companies_to_update = []
         count = 0
         batch_size = 500
 
-        for row in self.stream_csv(url, delimiter=';'):
-            number = parse_enterprise_number(row['EnterpriseNumber'])
-            legal_form = row.get('JuridicalForm')  # adapt the field name if needed
-
-            company = company_map.get(number)
-            if company and legal_form and not company.legalform_code:
+        # Step 3: Update only if field is empty
+        for company in companies:
+            legal_form = number_to_legalform[company.number]
+            if not company.legalform_code:
                 company.legalform_code = legal_form
                 companies_to_update.append(company)
                 count += 1
