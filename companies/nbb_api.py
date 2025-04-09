@@ -1,7 +1,5 @@
 import requests 
-import json
 import uuid
-from django.conf import settings
 from .utils import parse_enterprise_number
 
 

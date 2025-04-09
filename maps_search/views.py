@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 
 import time
-import hashlib
 
 from django.core.cache import cache
 from companies.models import Company
