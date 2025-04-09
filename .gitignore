@@ -1,0 +1,45 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Virtual environments
+/venv/
+env/
+ENV/
+
+# Django
+db.sqlite3
+*.pot
+*.mo
+*.log
+*.env
+
+# Static and media files
+/staticfiles/
+/media/
+
+# IDEs and editors
+.idea/
+.vscode/
+.DS_Store
+**/__pycache__/
+# Coverage reports
+dev_api_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Undo tree files (if using undo-tree in Vim)
+*.~undo-tree~
+*.~undo-tree~.un~

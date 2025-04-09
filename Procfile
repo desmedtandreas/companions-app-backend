@@ -1,0 +1,1 @@
+web: gunicorn companions_backend.wsgi
