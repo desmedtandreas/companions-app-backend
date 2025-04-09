@@ -144,25 +144,22 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'🏠 {count} addresses loaded incrementally.'))
         
     def update_legal_forms(self, url):
-        number_to_legalform = {}
+        companies_to_update = []
+        count = 0
+        batch_size = 250
 
-        # Step 1: Collect legal forms from the CSV
         for row in self.stream_csv(url, delimiter=';'):
             number = parse_enterprise_number(row['EnterpriseNumber'])
             legal_form = row.get('JuridicalForm')
-            if number and legal_form:
-                number_to_legalform[number] = legal_form
 
-        # Step 2: Only fetch companies that are in the CSV
-        companies = Company.objects.filter(number__in=number_to_legalform.keys()).only("id", "number", "legalform_code")
+            if not number or not legal_form:
+                continue
 
-        companies_to_update = []
-        count = 0
-        batch_size = 500
+            try:
+                company = Company.objects.only("id", "number", "legalform_code").get(number=number)
+            except Company.DoesNotExist:
+                continue
 
-        # Step 3: Update only if field is empty
-        for company in companies:
-            legal_form = number_to_legalform[company.number]
             if not company.legalform_code:
                 company.legalform_code = legal_form
                 companies_to_update.append(company)
