@@ -36,6 +36,29 @@ class ListViewSet(viewsets.ModelViewSet):
             ListItemSerializer(list_item).data,
             status=status.HTTP_201_CREATED
         )
+    
+    @action(detail=True, methods=['post'], url_path='remove-company')
+    def remove_company(self, request, slug=None):
+        list_instance = self.get_object()
+        company_number = request.data.get('company')
+
+        if not company_number:
+            return Response({'error': 'Missing "company" ID in request body.'}, status=400)
+
+        try:
+            company = Company.objects.get(number=company_number)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=404)
+
+        try:
+            list_item = ListItem.objects.get(list=list_instance, company=company)
+            list_item.delete()
+            list_instance.save()
+            return Response({'message': 'Company removed from list.'}, status=200)
+        except ListItem.DoesNotExist:
+            return Response({'error': 'Company not in list.'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
         
     @action(detail=True, methods=['post'], url_path='add-companies')
     def add_companies(self, request, slug=None):
