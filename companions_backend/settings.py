@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'maps_search',
     'companies',
+    'lists',
 ]
 
 MIDDLEWARE = [
