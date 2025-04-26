@@ -137,7 +137,7 @@ def GoogleMapsGeocodeAPI(address):
     return geometry
 
 
-def GoogleMapsPlacesAPI(textQuery, latitude, longitude, radius, nextPageToken=None):
+def GoogleMapsPlacesAPI(textQuery, nextPageToken=None):
     
     # if DEV_MODE:
     #     dev_cache_path = get_dev_cache_path(textQuery, latitude, longitude, radius, nextPageToken)
@@ -154,29 +154,13 @@ def GoogleMapsPlacesAPI(textQuery, latitude, longitude, radius, nextPageToken=No
     if nextPageToken:
         payload = {
             "textQuery": textQuery,
-            "locationBias": {
-                "circle": {
-                    "center": {
-                    "latitude": float(latitude),
-                    "longitude": float(longitude)
-                    },
-                    "radius": float(radius)
-                }
-            },
+            "languageCode": "nl",
             "pageToken": nextPageToken
         }
     else:
         payload = {
             "textQuery": textQuery,
-            "locationBias": {
-                "circle": {
-                    "center": {
-                    "latitude": float(latitude),
-                    "longitude": float(longitude)
-                    },
-                    "radius": float(radius)
-                }
-            },
+            "languageCode": "nl",
         }
         
     print("Payload: ", payload)
@@ -222,7 +206,7 @@ def GoogleMapsPlacesAPI(textQuery, latitude, longitude, radius, nextPageToken=No
             'place_id': place.get('id'),
             'name': place.get('displayName', {}).get('text'),
             'address': address,
-            'formatted_address': f"{address.get('street', '')} {address.get('number', '')}, {address.get('postcode', '')}".strip().strip(','),
+            'formatted_address': f"{address.get('street', '')} {address.get('number', '')}, {address.get('postcode', '')} {address.get('municipality', '')}".strip().strip(','),
             'website': place.get('websiteUri'),
             'vat_number': None,
             'company_id': None,

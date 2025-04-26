@@ -1,12 +1,16 @@
 from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+import threading
+import os
 import re
 
 from .models import Company
+from .kbo_importer import import_kbo_open_data
 from .serializers import CompanySerializer, AnnualAccountSerializer
 from .financial_importer import import_financials
 
@@ -79,3 +83,23 @@ class CompanyViewSet(ReadOnlyModelViewSet):
         
         company.tags.remove(tag)
         return Response({"tags": list(company.tags.names())}, status=status.HTTP_200_OK)
+    
+class LoadKBODataView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        auth_header = request.headers.get('Authorization')
+        if auth_header != f"Token {os.getenv('KBO_TRIGGER_TOKEN')}":
+            return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        year = request.data.get("year")
+        month = request.data.get("month")
+        s3_prefix = request.data.get("s3_prefix")
+
+        if not all([year, month, s3_prefix]):
+            return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+        threading.Thread(target=import_kbo_open_data, args=(s3_prefix,)).start()
+
+        return Response({"status": "Loading started", "s3_prefix": s3_prefix}, status=status.HTTP_200_OK)

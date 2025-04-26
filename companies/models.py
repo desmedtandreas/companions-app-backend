@@ -37,6 +37,8 @@ class Company(models.Model):
     def status(self):
         status_map = {
             '000': 'Actief',
+            '0' : 'Stopgezet',
+            '050' : 'Opening Faillissement'
         }
         
         try:

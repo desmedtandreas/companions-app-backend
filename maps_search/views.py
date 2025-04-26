@@ -7,7 +7,7 @@ import time
 from django.core.cache import cache
 from companies.models import Company
 
-from maps_search.services import GoogleMapsGeocodeAPI, GoogleMapsPlacesAPI, enrich_with_company_data
+from maps_search.services import GoogleMapsPlacesAPI, enrich_with_company_data
 from maps_search.serializers import GoogleMapsPlacesSerializer
 
 class GoogleMapsPlacesViewSet(ViewSet):
@@ -17,8 +17,6 @@ class GoogleMapsPlacesViewSet(ViewSet):
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         text_query = request.query_params.get('textQuery', '')
-        address = request.query_params.get('location', '')
-        radius = request.query_params.get('radius', 50)
         next_page_token = request.query_params.get('nextPageToken', None)
         print("next_page_token: ", next_page_token)
         if not text_query:
@@ -26,16 +24,7 @@ class GoogleMapsPlacesViewSet(ViewSet):
 
         try:
             start = time.time()
-            if address:
-                geometry = GoogleMapsGeocodeAPI(address)
-                latitude = geometry['latitude']
-                longitude = geometry['longitude']
-            else:
-                latitude = '51.2211097'
-                longitude = '4.3997082'
-                
-            print(latitude, longitude)
-            data = GoogleMapsPlacesAPI(text_query, latitude, longitude, radius, next_page_token)
+            data = GoogleMapsPlacesAPI(text_query, next_page_token)
             print("Processing places took", time.time() - start, "seconds")
             
             start = time.time()
