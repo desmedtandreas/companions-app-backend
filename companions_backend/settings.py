@@ -38,8 +38,17 @@ NBB_API_KEY = os.environ.get(
 )
 
 # Celery settings
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0' )
+
+if redis_url and redis_url.startswith('rediss://'):
+    # Add SSL options if using rediss
+    CELERY_BROKER_URL = redis_url
+    CELERY_BROKER_TRANSPORT_OPTIONS = {'ssl_cert_reqs': None}
+    CELERY_RESULT_BACKEND = redis_url
+else:
+    CELERY_BROKER_URL = redis_url
+    CELERY_RESULT_BACKEND = redis_url
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False') == 'True'
