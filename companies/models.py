@@ -85,8 +85,9 @@ class Company(models.Model):
     @property    
     def keyfigures(self):
         try:
-            return self.annual_accounts.order_by('-end_fiscal_year').first().calculate_kpis()
-        except AnnualAccount.DoesNotExist:
+            keyfigures = self.annual_accounts.order_by('-end_fiscal_year').first().calculate_kpis()
+            return keyfigures
+        except Exception as e:
             return None
         
 
