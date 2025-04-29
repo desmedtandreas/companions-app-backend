@@ -10,13 +10,15 @@ if settings.DEBUG:
    app = Celery('companions_backend')
    
 else:
-   app = Celery('companions_backend',
-      broker_use_ssl = {
-         'ssl_cert_reqs': ssl.CERT_REQUIRED
+   app = Celery('companions_backend')
+
+   app.conf.update(
+      broker_use_ssl={
+         'ssl_cert_reqs': ssl.CERT_NONE,  # or ssl.CERT_REQUIRED if you fix SSL
       },
-      redis_backend_use_ssl = {
-         'ssl_cert_reqs': ssl.CERT_REQUIRED
-      }
+      redis_backend_use_ssl={
+         'ssl_cert_reqs': ssl.CERT_NONE,
+      },
    )
 
 # Load config from Django settings, using a CELERY namespace
