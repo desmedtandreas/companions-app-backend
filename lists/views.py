@@ -5,6 +5,8 @@ from rest_framework import status
 from companies.models import Company
 from .models import List, ListItem
 from .serializers import ListSerializer, ListItemSerializer
+from .utils.export_excel import generate_companies_excel
+from django.http import HttpResponse
 
 
 class ListViewSet(viewsets.ModelViewSet):
@@ -37,28 +39,36 @@ class ListViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
     
-    @action(detail=True, methods=['post'], url_path='remove-company')
+    @action(detail=True, methods=['post'], url_path='remove-companies')
     def remove_company(self, request, slug=None):
         list_instance = self.get_object()
-        company_number = request.data.get('company')
+        company_numbers = request.data.get('companies')
 
-        if not company_number:
-            return Response({'error': 'Missing "company" ID in request body.'}, status=400)
+        if not company_numbers or not isinstance(company_numbers, list):
+            return Response({'error': 'Missing or invalid "companies" list in request body.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            company = Company.objects.get(number=company_number)
-        except Company.DoesNotExist:
-            return Response({'error': 'Company not found.'}, status=404)
+        removed_count = 0
+        errors = []
 
-        try:
-            list_item = ListItem.objects.get(list=list_instance, company=company)
-            list_item.delete()
-            list_instance.save()
-            return Response({'message': 'Company removed from list.'}, status=200)
-        except ListItem.DoesNotExist:
-            return Response({'error': 'Company not in list.'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        for number in company_numbers:
+            try:
+                company = Company.objects.get(number=number)
+                list_item = ListItem.objects.get(list=list_instance, company=company)
+                list_item.delete()
+                removed_count += 1
+            except Company.DoesNotExist:
+                errors.append(f'Company {number} not found.')
+            except ListItem.DoesNotExist:
+                errors.append(f'Company {number} not in list.')
+            except Exception as e:
+                errors.append(f'Error with {number}: {str(e)}')
+
+        list_instance.save()
+
+        return Response({
+            'removed': removed_count,
+            'errors': errors,
+        }, status=status.HTTP_200_OK)
         
     @action(detail=True, methods=['post'], url_path='add-companies')
     def add_companies(self, request, slug=None):
@@ -88,3 +98,27 @@ class ListViewSet(viewsets.ModelViewSet):
             {'added': len(created_items), 'added_companies': created_items},
             status=status.HTTP_201_CREATED
         )
+        
+    @action(detail=True, methods=['post'], url_path='export-excel')
+    def export_excel(self, request, slug=None):
+        list_instance = self.get_object()
+
+        company_numbers = request.data.get('companies', None)
+
+        if not company_numbers or not isinstance(company_numbers, list) or len(company_numbers) == 0:
+            company_numbers = list_instance.items.values_list('company__number', flat=True)
+            if company_numbers is None:
+                return Response({'error': 'No companies found in the list.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        companies = Company.objects.filter(number__in=company_numbers)
+        
+        excel_file = generate_companies_excel(companies, list_instance.name)
+        
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+        filename = f"lijst_{list_instance.slug}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        return response

@@ -61,6 +61,7 @@ class Company(models.Model):
         abbr = {
             'Besloten Vennootschap': 'BV',
             'Naamloze Vennootschap': 'NV',
+            'Naamloze vennootschap': 'NV',
             'Commanditaire Vennootschap': 'CommV',
         }
     
@@ -79,6 +80,13 @@ class Company(models.Model):
         try:
             return CodeLabel.objects.get(code=self.enterprise_type_code, category="TypeOfEnterprise").name
         except CodeLabel.DoesNotExist:
+            return None
+        
+    @property    
+    def keyfigures(self):
+        try:
+            return self.annual_accounts.order_by('-end_fiscal_year').first().calculate_kpis()
+        except AnnualAccount.DoesNotExist:
             return None
         
 
@@ -136,6 +144,9 @@ class AnnualAccount(models.Model):
             if None in (current, previous, additional):
                 return None
             return current.value - previous.value + additional.value
+        
+        if self.get_rubric("10/15") is None:
+            return None
 
         kpis = {
             "equity": val("10/15", self),

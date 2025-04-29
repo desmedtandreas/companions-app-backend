@@ -7,7 +7,7 @@ class CompanySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Company
-        fields = ['id', 'name', 'number', 'start_date', 'address']
+        fields = ['id', 'name', 'number', 'start_date', 'address', 'website', 'keyfigures']
         
     def get_address(self, obj):
         address = obj.addresses.all().first()

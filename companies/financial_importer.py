@@ -7,6 +7,7 @@ from .models import Company, AnnualAccount, FinancialRubric, Administrator, Pers
 
 @transaction.atomic
 def import_financials(enterprise_number):
+    AnnualAccount.objects.filter(company__number=enterprise_number).delete()
     company = Company.objects.get(number=enterprise_number)
     references = get_references(enterprise_number)
 

@@ -55,4 +55,16 @@ class CompanySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Company
-        fields = ["number", "name", "status", "enterprise_type", "legalform", "legalform_short", "start_date", "website", "fin_fetch", "tags", "addresses"]
+        fields = [
+            "number", 
+            "name", 
+            "status", 
+            "enterprise_type", 
+            "legalform", 
+            "legalform_short", 
+            "start_date", 
+            "website", 
+            "fin_fetch", 
+            "tags", 
+            "addresses"
+        ]
