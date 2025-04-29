@@ -22,10 +22,16 @@ class ListItemSerializer(serializers.ModelSerializer):
         model = ListItem
         fields = ['id', 'company', 'created_at']
 
-class ListSerializer(serializers.ModelSerializer):
+class ListDetailSerializer(serializers.ModelSerializer):
     items = ListItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = List
         fields = ['id', 'name', 'slug', 'description', 'created_at', 'updated_at', 'items']
+        read_only_fields = ['slug', 'created_at', 'updated_at']
+        
+class ListSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = List
+        fields = ['id', 'name', 'slug', 'description', 'created_at', 'updated_at']
         read_only_fields = ['slug', 'created_at', 'updated_at']

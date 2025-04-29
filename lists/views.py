@@ -4,15 +4,19 @@ from rest_framework.response import Response
 from rest_framework import status
 from companies.models import Company
 from .models import List, ListItem
-from .serializers import ListSerializer, ListItemSerializer
+from .serializers import ListDetailSerializer, ListSummarySerializer, ListItemSerializer
 from .utils.export_excel import generate_companies_excel
 from django.http import HttpResponse
 
 
 class ListViewSet(viewsets.ModelViewSet):
     queryset = List.objects.all().order_by('-created_at')
-    serializer_class = ListSerializer
     lookup_field = 'slug'
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ListSummarySerializer  # define this separately
+        return ListDetailSerializer
     
     @action(detail=True, methods=['post'], url_path='add-company')
     def add_company(self, request, slug=None):
