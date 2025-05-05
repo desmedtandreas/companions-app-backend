@@ -1,11 +1,13 @@
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 import threading
+import openpyxl
 import os
 import re
 
@@ -13,6 +15,10 @@ from .models import Company
 from .kbo_importer import import_kbo_open_data
 from .serializers import CompanySerializer, AnnualAccountSerializer
 from .financial_importer import import_financials
+
+def parse_vat(value: str) -> str:
+    value = value.upper().replace("BE", "")
+    return re.sub(r"\D", "", value)
 
 class CompanySearchViewSet(ReadOnlyModelViewSet):
     serializer_class = CompanySerializer
@@ -31,6 +37,49 @@ class CompanySearchViewSet(ReadOnlyModelViewSet):
 
         # Limit results and sort them by name
         return qs[:20]
+    
+    @action(detail=False, methods=["post"])
+    def bulk(self, request):
+        numbers = request.data.get("numbers", [])
+        if not isinstance(numbers, list):
+            return Response({"error": "Expected a list of numbers."}, status=400)
+
+        queryset = Company.objects.filter(number__in=numbers)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=["post"], parser_classes=[MultiPartParser])
+    def upload_excel(self, request):
+        file = request.FILES.get("file")
+        column = request.data.get("column")
+
+        if not file or not column:
+            return Response({"error": "Both 'file' and 'column' are required."}, status=400)
+
+        try:
+            workbook = openpyxl.load_workbook(file)
+            sheet = workbook.active
+            header = [cell.value for cell in sheet[1]]
+
+            if column not in header:
+                return Response({"error": f"Column '{column}' not found."}, status=400)
+
+            col_idx = header.index(column)
+            vat_numbers = []
+
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                raw_value = row[col_idx]
+                if raw_value:
+                    vat = parse_vat(str(raw_value))
+                    if vat:
+                        vat_numbers.append(vat)
+
+            queryset = Company.objects.filter(number__in=vat_numbers)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
         
 
 class CompanyViewSet(ReadOnlyModelViewSet):

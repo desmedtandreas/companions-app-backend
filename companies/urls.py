@@ -4,10 +4,8 @@ from django.urls import path
 
 router = DefaultRouter()
 router.register(r'companies', CompanyViewSet, basename='companies')
-
-company_search = CompanySearchViewSet.as_view({'get': 'list'})
+router.register(r'company-search', CompanySearchViewSet, basename='company-search')
 
 urlpatterns = [
-    path('companies/search/', company_search, name='company-search'),  # must come BEFORE router.urls
     path('companies/load-kbo-data/', LoadKBODataView.as_view(), name='load-kbo-data'),
 ] + router.urls
