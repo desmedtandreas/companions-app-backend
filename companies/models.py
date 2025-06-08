@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models.functions import Lower
 from datetime import date
 from taggit.managers import TaggableManager
+from django.utils.functional import cached_property
 
 class CodeLabel(models.Model):
     code = models.CharField(max_length=255)
@@ -83,7 +84,7 @@ class Company(models.Model):
         except CodeLabel.DoesNotExist:
             return None
         
-    @property
+    @cached_property
     def keyfigures(self):
         try:
             accounts = getattr(self, "_prefetched_objects_cache", {}).get("annual_accounts")
@@ -134,21 +135,25 @@ class AnnualAccount(models.Model):
     def __str__(self):
         return self.reference
     
+    @property
+    def rubric_map(self):
+        # Memoize rubric_map on instance
+        if not hasattr(self, '_rubric_map_cache'):
+            rubrics = getattr(self, '_prefetched_objects_cache', {}).get('financial_rubrics')
+            if rubrics is None:
+                rubrics = list(self.financial_rubrics.all())
+            self._rubric_map_cache = {rubric.code: rubric for rubric in rubrics}
+        return self._rubric_map_cache
+    
     def get_rubric(self, code):
-        cache = getattr(self, "_prefetched_objects_cache", {}).get("financial_rubrics")
-        if cache is not None:
-            for rubric in cache:
-                if rubric.code == code:
-                    return rubric
-            return None
-        try:
-            return self.financial_rubrics.get(code=code)
-        except FinancialRubric.DoesNotExist:
-            return None
-        
+        return self.rubric_map.get(code)
+
+    @cached_property
     def get_previous_account(self):
         try:
-            return self.company.annual_accounts.filter(end_fiscal_year__lt=self.end_fiscal_year).order_by('-end_fiscal_year').first()
+            return self.company.annual_accounts.filter(
+                end_fiscal_year__lt=self.end_fiscal_year
+            ).order_by('-end_fiscal_year').first()
         except AnnualAccount.DoesNotExist:
             return None
     
