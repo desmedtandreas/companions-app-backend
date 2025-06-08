@@ -7,6 +7,7 @@ from .models import List, ListItem
 from .serializers import ListDetailSerializer, ListSummarySerializer, ListItemSerializer
 from .utils.export_excel import generate_companies_excel
 from django.http import HttpResponse
+from companies.tasks import trigger_financial_import_task
 
 
 class ListViewSet(viewsets.ModelViewSet):
@@ -114,6 +115,10 @@ class ListViewSet(viewsets.ModelViewSet):
         if new_items:
             ListItem.objects.bulk_create(new_items)
             list_instance.save()
+
+            for item in new_items:
+                print(f"Added {item.company_id} to list {list_instance.name}")
+                trigger_financial_import_task.delay(item.company_id)
 
         return Response(
             {'added': len(created_items), 'added_companies': created_items},
