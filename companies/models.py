@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models.functions import Lower
+from datetime import date
 from taggit.managers import TaggableManager
 
 class CodeLabel(models.Model):
@@ -82,12 +83,23 @@ class Company(models.Model):
         except CodeLabel.DoesNotExist:
             return None
         
-    @property    
+    @property
     def keyfigures(self):
         try:
-            keyfigures = self.annual_accounts.order_by('-end_fiscal_year').first().calculate_kpis()
-            return keyfigures
-        except Exception as e:
+            accounts = getattr(self, "_prefetched_objects_cache", {}).get("annual_accounts")
+            if accounts is not None:
+                if not accounts:
+                    return None
+                account = max(
+                    accounts,
+                    key=lambda a: a.end_fiscal_year or date.min,
+                )
+            else:
+                account = self.annual_accounts.order_by("-end_fiscal_year").first()
+            if not account:
+                return None
+            return account.calculate_kpis()
+        except Exception:
             return None
         
 
@@ -123,6 +135,12 @@ class AnnualAccount(models.Model):
         return self.reference
     
     def get_rubric(self, code):
+        cache = getattr(self, "_prefetched_objects_cache", {}).get("financial_rubrics")
+        if cache is not None:
+            for rubric in cache:
+                if rubric.code == code:
+                    return rubric
+            return None
         try:
             return self.financial_rubrics.get(code=code)
         except FinancialRubric.DoesNotExist:
