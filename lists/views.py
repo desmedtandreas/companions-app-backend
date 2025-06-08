@@ -17,9 +17,6 @@ class ListViewSet(viewsets.ModelViewSet):
         qs = List.objects.all().order_by('-created_at')
         if getattr(self, "action", None) in [
             "retrieve",
-            "add_company",
-            "add_companies",
-            "remove_company",
             "export_excel",
         ]:
             qs = qs.prefetch_related(
