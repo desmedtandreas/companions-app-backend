@@ -51,7 +51,7 @@ def generate_companies_excel(companies, listname):
             keyfigures.get('profit', ''),
             keyfigures.get('net_debt', ''),
             keyfigures.get('capex', ''),
-            keyfigures.get('remunerations', ''),
+            keyfigures.get('remuneration', ''),
             keyfigures.get('fte', ''),
             keyfigures.get('real_estate', '')
         ]
