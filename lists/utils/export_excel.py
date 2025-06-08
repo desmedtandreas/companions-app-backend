@@ -45,7 +45,7 @@ def generate_companies_excel(companies, listname):
             company.website,
             company.legalform,
             keyfigures.get('equity', ''),
-            keyfigures.get('revenue', ''),
+            keyfigures.get('turnover', ''),
             keyfigures.get('margin', ''),
             keyfigures.get('ebitda', ''),
             keyfigures.get('profit', ''),
