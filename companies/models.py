@@ -148,7 +148,6 @@ class AnnualAccount(models.Model):
     def get_rubric(self, code):
         return self.rubric_map.get(code)
 
-    @cached_property
     def get_previous_account(self):
         try:
             return self.company.annual_accounts.filter(
