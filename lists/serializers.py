@@ -1,6 +1,11 @@
 from rest_framework import serializers
-from .models import List, ListItem
+from .models import List, ListItem, Label, Municipality
 from companies.models import Company
+
+class MunicipalitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Municipality
+        fields = ['id', 'name', 'code']
 
 class CompanySerializer(serializers.ModelSerializer):
     address = serializers.SerializerMethodField()
@@ -25,21 +30,26 @@ class CompanySerializer(serializers.ModelSerializer):
 
         return None
 
-
+class LabelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Label
+        fields = ["id", "name"]
 
 class ListItemSerializer(serializers.ModelSerializer):
     company = CompanySerializer(read_only=True)
+    label = LabelSerializer(read_only=True)
 
     class Meta:
         model = ListItem
-        fields = ['id', 'company', 'created_at']
+        fields = ['id', 'company', 'label', 'created_at']
 
 class ListDetailSerializer(serializers.ModelSerializer):
     items = ListItemSerializer(many=True, read_only=True)
+    labels = LabelSerializer(many=True, read_only=True)
 
     class Meta:
         model = List
-        fields = ['id', 'name', 'slug', 'description', 'created_at', 'updated_at', 'items']
+        fields = ['id', 'name', 'slug', 'description', 'created_at', 'updated_at', 'items', 'labels', 'municipality_scores']
         read_only_fields = ['slug', 'created_at', 'updated_at']
         
 class ListSummarySerializer(serializers.ModelSerializer):

@@ -139,7 +139,7 @@ class LoadKBODataView(APIView):
 
     def post(self, request):
         auth_header = request.headers.get('Authorization')
-        if auth_header != f"Token {os.getenv('KBO_TRIGGER_TOKEN')}":
+        if auth_header != f"{os.getenv('KBO_TRIGGER_TOKEN')}":
             return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
 
         year = request.data.get("year")
